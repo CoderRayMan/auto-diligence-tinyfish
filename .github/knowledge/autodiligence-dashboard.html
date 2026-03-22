@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AutoDiligence – Risk Dashboard</title>
+  <style>
+    :root {
+      --bg: #070b11;
+      --bg-elevated: #0f172a;
+      --bg-soft: #111827;
+      --border-subtle: #1f2937;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.12);
+      --accent-strong: #0ea5e9;
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --danger: #f97373;
+      --danger-soft: rgba(248, 113, 113, 0.16);
+      --warning: #fbbf24;
+      --success: #4ade80;
+      --radius-lg: 12px;
+      --radius-md: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top left, #0f172a 0, #020617 55%, #000 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top App Bar */
+
+    .app-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(18px);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .app-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-pill {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #38bdf8, #0f172a 60%, #020617 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: #e0f2fe;
+    }
+
+    .app-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .app-title h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .app-title span {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      color: #cbd5f5;
+    }
+
+    .badge--accent {
+      border-color: rgba(56, 189, 248, 0.55);
+      background: rgba(15, 118, 178, 0.15);
+      color: #e0f2fe;
+    }
+
+    .app-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--success);
+      margin-right: 6px;
+      box-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+    }
+
+    .status-line {
+      font-size: 12px;
+      color: var(--text-soft);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .primary-btn {
+      border-radius: 999px;
+      padding: 8px 16px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent-strong), #4f46e5);
+      color: white;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.9);
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 80ms ease;
+    }
+
+    .primary-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.9);
+      opacity: 0.96;
+    }
+
+    .primary-btn span.icon {
+      font-size: 15px;
+    }
+
+    /* Main Layout */
+
+    .main {
+      flex: 1;
+      padding: 18px 24px 28px;
+      max-width: 1360px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Context Strip */
+
+    .context-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 14px 16px;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), rgba(15, 23, 42, 0.9));
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .context-main {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .context-main h2 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .context-subtitle {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      font-size: 11px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      color: #cbd5f5;
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .chip--accent {
+      border-color: rgba(56, 189, 248, 0.8);
+      background: rgba(15, 23, 42, 1);
+      color: #e0f2fe;
+    }
+
+    .context-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-end;
+      font-size: 12px;
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill--running {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    .pill--risk {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    /* Summary Cards */
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 1), rgba(15, 23, 42, 0.85));
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 14px 35px rgba(3, 7, 18, 0.8);
+    }
+
+    .card-header {
+      font-size: 11px;
+      color: var(--text-soft);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-value {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .card-footer {
+      font-size: 11px;
+      color: var(--text-soft);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Main Split */
+
+    .main-split {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 14px;
+      margin-top: 4px;
+    }
+
+    /* Filters panel */
+
+    .panel {
+      background: linear-gradient(165deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 1));
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      padding: 14px 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel h3 {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .field-label {
+      font-size: 11px;
+      color: var(--text-soft);
+      margin-bottom: 4px;
+    }
+
+    select, input[type="date"] {
+      width: 100%;
+      padding: 7px 9px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      background: #020617;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-soft);
+      margin-bottom: 4px;
+    }
+
+    .saved-scenarios {
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(55, 65, 81, 0.9);
+    }
+
+    .scenario-pill {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(75, 85, 99, 0.9);
+      margin: 2px 4px 2px 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* Right main column */
+
+    .right-column {
+      display: grid;
+      grid-template-rows: minmax(0, 1.7fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-soft);
+      margin-bottom: 8px;
+    }
+
+    .tabs {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: #020617;
+      overflow: hidden;
+      font-size: 11px;
+    }
+
+    .tab {
+      padding: 4px 10px;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    .tab--active {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    /* Table */
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    th, td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(31, 41, 55, 0.8);
+      text-align: left;
+    }
+
+    th {
+      font-weight: 500;
+      color: var(--text-soft);
+      background: #020617;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr:hover {
+      background: rgba(15, 23, 42, 0.8);
+      cursor: pointer;
+    }
+
+    .severity-pill {
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .severity-pill--critical {
+      background: rgba(248, 113, 113, 0.18);
+      color: #fecaca;
+      border: 1px solid rgba(248, 113, 113, 0.6);
+    }
+
+    .severity-pill--high {
+      background: rgba(251, 191, 36, 0.16);
+      color: #fde68a;
+      border: 1px solid rgba(251, 191, 36, 0.7);
+    }
+
+    .status-pill {
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      color: #d1d5db;
+    }
+
+    .status-pill--open {
+      border-color: rgba(248, 113, 113, 0.7);
+      color: #fecaca;
+    }
+
+    .status-pill--closed {
+      border-color: rgba(52, 211, 153, 0.7);
+      color: #bbf7d0;
+    }
+
+    /* Agent log */
+
+    .log-list {
+      list-style: none;
+      max-height: 190px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .log-item {
+      padding: 6px 0;
+      border-bottom: 1px dashed rgba(31, 41, 55, 0.9);
+      font-size: 11px;
+    }
+
+    .log-meta {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-soft);
+      margin-bottom: 2px;
+    }
+
+    .log-body {
+      color: #e5e7eb;
+    }
+
+    .log-tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 1);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+    }
+
+    /* Details drawer (static mock) */
+
+    .details-drawer {
+      position: fixed;
+      right: 18px;
+      top: 82px;
+      width: 340px;
+      max-height: calc(100vh - 110px);
+      border-radius: var(--radius-lg);
+      background: #020617;
+      border: 1px solid var(--border-subtle);
+      padding: 14px 16px;
+      box-shadow: -12px 24px 60px rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .details-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .details-header h3 {
+      font-size: 13px;
+    }
+
+    .details-grid {
+      margin-top: 6px;
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 6px 10px;
+      font-size: 11px;
+    }
+
+    .details-label {
+      color: var(--text-soft);
+    }
+
+    .details-value {
+      color: #e5e7eb;
+    }
+
+    .details-link {
+      font-size: 11px;
+      color: var(--accent-strong);
+      text-decoration: none;
+    }
+
+    @media (max-width: 1100px) {
+      .details-drawer {
+        display: none;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .main-split {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .right-column {
+        grid-template-rows: minmax(0, 2fr) minmax(0, 1.2fr);
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="app-bar">
+    <div class="app-bar-left">
+      <div class="logo-pill">A</div>
+      <div class="app-title">
+        <h1>AutoDiligence</h1>
+        <span>Regulatory Risk on TinyFish</span>
+      </div>
+      <span class="badge">v0.1 • Sandbox</span>
+    </div>
+    <div class="app-bar-right">
+      <div class="status-line">
+        <span class="status-dot"></span>
+        <span>Connected to TinyFish · 14 agents idle</span>
+      </div>
+      <button class="primary-btn">
+        <span class="icon">▶</span>
+        <span>Run New Scan</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Context strip -->
+    <section class="context-strip">
+      <div class="context-main">
+        <h2>Acme Industrial Holdings · Diligence Run</h2>
+        <div class="context-subtitle">
+          M&A buyer view · Legal, regulatory, workplace safety, and enforcement history
+        </div>
+        <div class="chip-row">
+          <span class="chip chip--accent">Jurisdictions: US Federal · Delaware · EU</span>
+          <span class="chip">Scope: Litigation & Enforcement</span>
+          <span class="chip">Depth: Last 7 years</span>
+        </div>
+      </div>
+      <div class="context-meta">
+        <div class="pill pill--running">● Scan running – 12/24 sites complete</div>
+        <div>Last full run: 2026‑03‑20 · 18:42 IST</div>
+        <div>Owner: ankshuk@firm.com</div>
+      </div>
+    </section>
+
+    <!-- Summary cards -->
+    <section class="summary-row">
+      <article class="card">
+        <div class="card-header">
+          <span>Total findings</span>
+          <span class="pill pill--risk">6 critical · 18 high</span>
+        </div>
+        <div class="card-value">74</div>
+        <div class="card-footer">
+          <span>+12 vs. last run</span>
+          <span>Across 5 regulators</span>
+        </div>
+      </article>
+      <article class="card">
+        <div class="card-header">
+          <span>Open exposure</span>
+          <span>Last 24 months</span>
+        </div>
+        <div class="card-value">USD 4.3M</div>
+        <div class="card-footer">
+          <span>Majority OSHA & state OSHA</span>
+          <span>3 active appeals</span>
+        </div>
+      </article>
+      <article class="card">
+        <div class="card-header">
+          <span>Coverage</span>
+          <span>Live agents</span>
+        </div>
+        <div class="card-value">21 / 24</div>
+        <div class="card-footer">
+          <span>Sources scanned</span>
+          <span>Last refresh: 14s ago</span>
+        </div>
+      </article>
+    </section>
+
+    <!-- Main split: filters + results/log -->
+    <section class="main-split">
+      <!-- Filters -->
+      <aside class="panel">
+        <div>
+          <h3>Filters</h3>
+          <div class="field-label">Risk type</div>
+          <select>
+            <option>All risk types</option>
+            <option>Litigation</option>
+            <option>Regulatory enforcement</option>
+            <option>Workplace safety</option>
+            <option>Environmental</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="field-label">Severity</div>
+          <div class="checkbox-row">
+            <input type="checkbox" checked> <span>Critical</span>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" checked> <span>High</span>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox"> <span>Medium</span>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox"> <span>Low</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="field-label">Decision date</div>
+          <input type="date" value="2023-01-01">
+        </div>
+
+        <div>
+          <div class="field-label">Sources</div>
+          <div class="checkbox-row">
+            <input type="checkbox" checked> <span>OSHA / State OSHA</span>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" checked> <span>Federal courts</span>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox"> <span>EU regulators</span>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox"> <span>Local labor boards</span>
+          </div>
+        </div>
+
+        <div class="saved-scenarios">
+          <div class="field-label">Saved views</div>
+          <div>
+            <span class="scenario-pill">Red‑flag only</span>
+            <span class="scenario-pill">US‑only OSHA</span>
+            <span class="scenario-pill">Open litigation</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right column -->
+      <div class="right-column">
+        <!-- Findings table -->
+        <section class="panel">
+          <div class="section-header">
+            <span>Findings · Prioritized by risk</span>
+            <div class="tabs">
+              <div class="tab tab--active">List</div>
+              <div class="tab">Timeline</div>
+              <div class="tab">By jurisdiction</div>
+            </div>
+          </div>
+          <div style="overflow:auto; max-height:260px; border-radius: 8px;">
+            <table>
+              <thead>
+              <tr>
+                <th style="width:72px;">Severity</th>
+                <th>Case / matter</th>
+                <th style="width:110px;">Jurisdiction</th>
+                <th style="width:120px;">Source</th>
+                <th style="width:90px;">Status</th>
+                <th style="width:90px;">Decision date</th>
+                <th style="width:80px;">Exposure</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr>
+                <td>
+                  <span class="severity-pill severity-pill--critical">
+                    ● Critical
+                  </span>
+                </td>
+                <td>
+                  Multiple willful OSHA violations at Houston plant (repeat offender)
+                </td>
+                <td>US · Texas</td>
+                <td>OSHA Enforcement</td>
+                <td><span class="status-pill status-pill--open">Open</span></td>
+                <td>2025‑11‑02</td>
+                <td>$1.4M</td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="severity-pill severity-pill--high">
+                    ● High
+                  </span>
+                </td>
+                <td>Environmental non‑compliance consent decree</td>
+                <td>US · Federal</td>
+                <td>EPA Docket</td>
+                <td><span class="status-pill">Settled</span></td>
+                <td>2024‑06‑18</td>
+                <td>$900k</td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="severity-pill severity-pill--high">
+                    ● High
+                  </span>
+                </td>
+                <td>Wrongful termination and retaliation lawsuit (class potential)</td>
+                <td>US · Delaware</td>
+                <td>Chancery Court</td>
+                <td><span class="status-pill status-pill--open">Open</span></td>
+                <td>2025‑01‑09</td>
+                <td>–</td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="severity-pill severity-pill--critical">
+                    ● Critical
+                  </span>
+                </td>
+                <td>Fatal workplace incident – machine guarding failure</td>
+                <td>US · Ohio</td>
+                <td>State OSHA</td>
+                <td><span class="status-pill status-pill--open">Open</span></td>
+                <td>2025‑12‑01</td>
+                <td>$2.0M+</td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="severity-pill severity-pill--high">
+                    ● High
+                  </span>
+                </td>
+                <td>Back‑wage order for unpaid overtime</td>
+                <td>US · Federal</td>
+                <td>DoL Wage & Hour</td>
+                <td><span class="status-pill status-pill--closed">Closed</span></td>
+                <td>2023‑08‑27</td>
+                <td>$140k</td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Agent log -->
+        <section class="panel">
+          <div class="section-header">
+            <span>Agent activity (TinyFish)</span>
+            <span style="font-size:11px; color:var(--text-soft);">Streaming live from 24 Site Agents</span>
+          </div>
+          <ul class="log-list">
+            <li class="log-item">
+              <div class="log-meta">
+                <span>OSHA · us_osha</span>
+                <span class="log-tag">RUNNING</span>
+              </div>
+              <div class="log-body">
+                Navigating to enforcement search page · applied filters for “Acme Industrial Holdings”
+              </div>
+            </li>
+            <li class="log-item">
+              <div class="log-meta">
+                <span>US Courts · pacer_scraper</span>
+                <span class="log-tag">COMPLETED</span>
+              </div>
+              <div class="log-body">
+                Found 12 dockets matching party “Acme Industrial Holdings” (3 within last 24 months)
+              </div>
+            </li>
+            <li class="log-item">
+              <div class="log-meta">
+                <span>EU OSHA · eu_osha</span>
+                <span class="log-tag">WAITING</span>
+              </div>
+              <div class="log-body">
+                Waiting for dynamic results table to load after submitting filters
+              </div>
+            </li>
+            <li class="log-item">
+              <div class="log-meta">
+                <span>DoL · wage_hour</span>
+                <span class="log-tag">RUNNING</span>
+              </div>
+              <div class="log-body">
+                Logged in via Stateful Token Vault · reusing prior session cookie
+              </div>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </section>
+
+    <!-- Static example details drawer -->
+    <aside class="details-drawer">
+      <div class="details-header">
+        <h3>Case details · OSHA‑TX‑2025‑1197</h3>
+        <span class="severity-pill severity-pill--critical">● Critical</span>
+      </div>
+      <div class="details-grid">
+        <span class="details-label">Employer</span>
+        <span class="details-value">Acme Industrial Holdings – Houston</span>
+
+        <span class="details-label">Violation type</span>
+        <span class="details-value">Willful · Repeat · Machine guarding</span>
+
+        <span class="details-label">Status</span>
+        <span class="details-value">Open · Under contest</span>
+
+        <span class="details-label">Decision date</span>
+        <span class="details-value">2025‑11‑02</span>
+
+        <span class="details-label">Proposed penalty</span>
+        <span class="details-value">USD 1.4M</span>
+
+        <span class="details-label">Jurisdiction</span>
+        <span class="details-value">US · Texas · OSHA Region 6</span>
+
+        <span class="details-label">Source system</span>
+        <span class="details-value">OSHA Enforcement – public portal</span>
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:var(--text-soft);">
+        Summary: Fatal incident involving unguarded conveyor line. Prior citations at same facility within 3 years. High likelihood of reputational
+        impact and follow‑on civil litigation. Flagged as red‑line item for deal committee.
+      </div>
+      <div style="margin-top:10px;">
+        <a href="#" class="details-link">Open in source portal ↗</a>
+      </div>
+    </aside>
+  </main>
+</div>
+</body>
+</html>

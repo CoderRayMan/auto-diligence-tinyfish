@@ -1,0 +1,144 @@
+.findings-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13px;
+  font-weight: 500;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sort-pills {
+  display: flex;
+  gap: 6px;
+}
+
+.sort-pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.sort-pill--active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.table-scroll {
+  overflow: auto;
+  max-height: 440px;
+}
+
+.findings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.findings-table th {
+  padding: 8px 12px;
+  text-align: left;
+  color: var(--text-soft);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+}
+
+.findings-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.5);
+  vertical-align: top;
+}
+
+.finding-row {
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.finding-row:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.case-desc {
+  max-width: 360px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.cell-soft {
+  color: var(--text-soft);
+}
+
+.cell-penalty {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Severity pills */
+.sev-pill {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.sev--critical { color: var(--sev-critical); }
+.sev--high { color: var(--sev-high); }
+.sev--medium { color: var(--sev-medium); }
+.sev--low { color: var(--sev-low); }
+
+/* Status pills */
+.status-pill {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.status--open {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.status--settled, .status--closed {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--success);
+}
+
+.status--appealed {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning);
+}
+
+.status--unknown {
+  color: var(--text-soft);
+}
+
+.findings-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 13px;
+}

@@ -2,20 +2,23 @@
 # Requirements for TinyFish Accelerator
 
 # Core Dependencies
-asyncio-mqtt>=0.16.0
 python-dotenv>=1.0.0
 pyyaml>=6.0
 
 # TinyFish SDK
 tinyfish>=0.1.0
 
+# FastAPI Backend
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+sse-starlette>=2.1.0
+python-multipart>=0.0.9
+
 # Async Support
 aiohttp>=3.9.0
-asyncio>=3.4.3
 
 # Data Processing
 pydantic>=2.5.0
-pandas>=2.1.0
 
 # Optional: Distributed Token Vault
 redis>=5.0.0
@@ -28,11 +31,6 @@ pytest-mock>=3.12.0
 # Logging
 structlog>=23.2.0
 
-# CLI (optional)
-typer>=0.9.0
-rich>=13.7.0
-
 # Development
 black>=23.0.0
-flake8>=7.0.0
 mypy>=1.8.0

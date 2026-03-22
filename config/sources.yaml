@@ -1,0 +1,155 @@
+sources:
+  - id: "us_osha"
+    name: "US OSHA Enforcement Records"
+    base_url: "https://www.osha.gov/enforcement"
+    category: "workplace_safety"
+    login_flow: "none"
+    browser_profile: "STEALTH"
+    proxy:
+      enabled: false
+      country: "US"
+    rate_limit:
+      max_requests_per_minute: 5
+      jitter_ms: 500
+    retry_policy:
+      max_retries: 3
+      backoff_seconds: 2
+    search_goal_template: |
+      Navigate to the OSHA enforcement search page.
+      Search for inspection and enforcement records for company: {{company_name}}.
+      Apply filters for date range: {{date_from}} to {{date_to}}.
+      For each record found, extract:
+      - case_id: the OSHA citation or inspection number
+      - employer_name: name of the employer cited
+      - violation_type: type of violation (serious, willful, repeat, other-than-serious)
+      - proposed_penalty: dollar amount of penalty proposed
+      - decision_date: date of inspection or citation
+      - status: current status (open, contested, settled, closed)
+      - jurisdiction: state or federal
+      - description: brief description of the violation
+      - source_url: URL of the specific record
+      Return all results as a JSON array under the key "cases".
+
+  - id: "us_fda"
+    name: "FDA Warning Letters & Enforcement"
+    base_url: "https://www.fda.gov/inspections-compliance-enforcement-and-criminal-investigations/compliance-actions-and-activities/warning-letters"
+    category: "fda_enforcement"
+    login_flow: "none"
+    browser_profile: "LITE"
+    proxy:
+      enabled: false
+      country: "US"
+    rate_limit:
+      max_requests_per_minute: 10
+      jitter_ms: 200
+    retry_policy:
+      max_retries: 3
+      backoff_seconds: 2
+    search_goal_template: |
+      Navigate to the FDA warning letters and enforcement actions page.
+      Search for records related to company: {{company_name}}.
+      Filter by date range: {{date_from}} to {{date_to}}.
+      For each record found, extract:
+      - case_id: FDA reference number or letter ID
+      - employer_name: company or individual cited
+      - violation_type: type of FDA violation (GMP, labeling, adulteration, etc.)
+      - proposed_penalty: any penalty amount if mentioned
+      - decision_date: date the warning letter or action was issued
+      - status: current status
+      - jurisdiction: US Federal
+      - description: summary of the violation
+      - source_url: direct URL to the document
+      Return all results as a JSON array under the key "cases".
+
+  - id: "us_sec"
+    name: "SEC Enforcement Actions"
+    base_url: "https://www.sec.gov/divisions/enforce/enforcements.htm"
+    category: "financial_regulatory"
+    login_flow: "none"
+    browser_profile: "LITE"
+    proxy:
+      enabled: false
+      country: "US"
+    rate_limit:
+      max_requests_per_minute: 10
+      jitter_ms: 100
+    retry_policy:
+      max_retries: 3
+      backoff_seconds: 2
+    search_goal_template: |
+      Navigate to the SEC enforcement actions page.
+      Search for enforcement actions related to company or individual: {{company_name}}.
+      Filter by date range: {{date_from}} to {{date_to}}.
+      For each record found, extract:
+      - case_id: SEC release number or litigation release number
+      - employer_name: company or individual named in the action
+      - violation_type: type of securities violation (fraud, disclosure, insider trading, etc.)
+      - proposed_penalty: disgorgement or penalty amount
+      - decision_date: date of action
+      - status: current status (settled, litigated, ongoing)
+      - jurisdiction: US Federal
+      - description: summary of the enforcement action
+      - source_url: URL to the press release or order
+      Return all results as a JSON array under the key "cases".
+
+  - id: "us_dol"
+    name: "Department of Labor Wage & Hour Violations"
+    base_url: "https://www.dol.gov/agencies/whd/data"
+    category: "labor_violations"
+    login_flow: "none"
+    browser_profile: "LITE"
+    proxy:
+      enabled: false
+      country: "US"
+    rate_limit:
+      max_requests_per_minute: 8
+      jitter_ms: 300
+    retry_policy:
+      max_retries: 3
+      backoff_seconds: 2
+    search_goal_template: |
+      Navigate to the Department of Labor wage and hour compliance data.
+      Search for violations related to company: {{company_name}}.
+      Apply date filters: {{date_from}} to {{date_to}}.
+      For each record found, extract:
+      - case_id: WHD investigation ID
+      - employer_name: name of the employer
+      - violation_type: type of wage violation (overtime, minimum wage, child labor, etc.)
+      - proposed_penalty: back wages or civil money penalties assessed
+      - decision_date: date of investigation completion
+      - status: status of recovery
+      - jurisdiction: state or federal
+      - description: description of the violation
+      - source_url: URL of the enforcement record
+      Return all results as a JSON array under the key "cases".
+
+  - id: "us_epa"
+    name: "EPA Enforcement & Compliance"
+    base_url: "https://echo.epa.gov/"
+    category: "environmental"
+    login_flow: "none"
+    browser_profile: "LITE"
+    proxy:
+      enabled: false
+      country: "US"
+    rate_limit:
+      max_requests_per_minute: 8
+      jitter_ms: 400
+    retry_policy:
+      max_retries: 3
+      backoff_seconds: 2
+    search_goal_template: |
+      Navigate to the EPA Enforcement and Compliance History Online (ECHO) system.
+      Search for environmental compliance records for facility or company: {{company_name}}.
+      Filter by date range: {{date_from}} to {{date_to}}.
+      For each record found, extract:
+      - case_id: EPA case or inspection ID
+      - employer_name: facility or company name
+      - violation_type: type of environmental violation (Clean Air, Clean Water, RCRA, etc.)
+      - proposed_penalty: penalty amount assessed
+      - decision_date: date of enforcement action
+      - status: current status
+      - jurisdiction: state or federal
+      - description: description of the violation
+      - source_url: URL of the record
+      Return all results as a JSON array under the key "cases".

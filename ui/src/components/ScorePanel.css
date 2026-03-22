@@ -1,0 +1,131 @@
+.score-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.score-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.gauge-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gauge-svg {
+  width: 120px;
+  height: 85px;
+}
+
+.gauge-label {
+  position: absolute;
+  bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.gauge-number {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.gauge-sub {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.score-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.breakdown-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.breakdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.breakdown-label {
+  color: var(--text-soft);
+}
+
+.breakdown-total {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 6px;
+}
+
+.breakdown-total strong {
+  color: var(--text);
+}
+
+.source-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.source-bar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.source-name {
+  color: var(--text-soft);
+}
+
+.source-status {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.source-status--ok {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--success);
+}
+
+.source-status--fail {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.source-status--pending {
+  color: var(--text-soft);
+}

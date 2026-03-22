@@ -1,0 +1,129 @@
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 11, 17, 0.5);
+  z-index: 199;
+}
+
+.details-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-subtle);
+  padding: 16px 18px;
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 200;
+  overflow-y: auto;
+  animation: slideIn 180ms ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.details-header h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.drawer-close {
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 120ms, background 120ms;
+}
+
+.drawer-close:hover {
+  color: var(--text);
+  background: var(--bg-soft);
+}
+
+.sev-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.sev-badge--critical {
+  background: var(--danger-soft);
+  color: var(--sev-critical);
+}
+
+.sev-badge--high {
+  background: rgba(251, 146, 60, 0.15);
+  color: var(--sev-high);
+}
+
+.sev-badge--medium {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--sev-medium);
+}
+
+.sev-badge--low {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--sev-low);
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 10px;
+  font-size: 12px;
+}
+
+.dl {
+  color: var(--text-soft);
+}
+
+.dv {
+  color: var(--text);
+  word-break: break-word;
+}
+
+.details-description {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.details-description-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.details-description p {
+  color: var(--text);
+}
+
+.details-link {
+  font-size: 12px;
+  color: var(--accent-strong);
+  text-decoration: none;
+  margin-top: auto;
+}
+
+.details-link:hover {
+  text-decoration: underline;
+}
