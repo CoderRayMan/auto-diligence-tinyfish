@@ -197,7 +197,7 @@ async def get_scan(scan_id: str) -> ScanResponse:
     return scan
 
 
-@router.delete("/{scan_id}", status_code=204, response_class=Response)
+@router.delete("/{scan_id}", status_code=204)
 async def cancel_scan(scan_id: str) -> None:
     """Mark a scan as cancelled. Does not interrupt in-flight agents."""
     scan = await scan_store.get(scan_id)
