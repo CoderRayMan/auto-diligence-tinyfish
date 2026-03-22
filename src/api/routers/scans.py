@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi.responses import Response
 
 from ..schemas import (
     ScanRequest,
@@ -196,7 +197,7 @@ async def get_scan(scan_id: str) -> ScanResponse:
     return scan
 
 
-@router.delete("/{scan_id}", status_code=204)
+@router.delete("/{scan_id}", status_code=204, response_class=Response)
 async def cancel_scan(scan_id: str) -> None:
     """Mark a scan as cancelled. Does not interrupt in-flight agents."""
     scan = await scan_store.get(scan_id)
