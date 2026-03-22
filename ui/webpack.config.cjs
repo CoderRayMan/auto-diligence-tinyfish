@@ -44,14 +44,20 @@ module.exports = (env, argv) => {
       }),
     ],
     devServer: {
-      port: 5173,
+      port: 5174,
       hot: true,
+      compress: false,        // SSE: gzip buffering breaks real-time event streams
       historyApiFallback: true,
       proxy: [
         {
           context: ["/api"],
           target: "http://localhost:8000",
           changeOrigin: true,
+          // SSE: ensure no response buffering through the proxy
+          selfHandleResponse: false,
+          onProxyReq: (proxyReq) => {
+            proxyReq.setHeader("Accept-Encoding", "identity");
+          },
         },
       ],
     },

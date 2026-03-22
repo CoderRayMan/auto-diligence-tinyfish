@@ -42,7 +42,7 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
     # Update status to running
     await scan_store.update(scan_id, status=ScanStatus.running)
 
-    # Emit "RUNNING" event per source
+    # Emit "RUNNING" event per source at start
     now = datetime.utcnow().isoformat()
     for src in sources:
         await scan_store.push_event(
@@ -61,6 +61,27 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
         use_token_vault=True,
     )
 
+    # Build a thread-safe SSE callback that bridges TinyFish PROGRESS events
+    # into the asyncio SSE queue.  agent.research() runs inside asyncio.to_thread()
+    # so we capture the running event loop here and use run_coroutine_threadsafe.
+    loop = asyncio.get_event_loop()
+
+    def _sse_event(source_id: str, tag: str, message: str, streaming_url: str | None = None) -> None:
+        """Called from the TinyFish stream thread; pushes to the async SSE queue."""
+        asyncio.run_coroutine_threadsafe(
+            scan_store.push_event(
+                AgentEvent(
+                    scan_id=scan_id,
+                    source_id=source_id,
+                    agent_tag=tag,
+                    message=message,
+                    timestamp=datetime.utcnow().isoformat(),
+                    streaming_url=streaming_url,
+                )
+            ),
+            loop,
+        )
+
     source_results: List[SourceResult] = []
     all_raw: dict = {}
 
@@ -68,6 +89,7 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
         results = await manager.research(
             target=request.target,
             query=request.query,
+            event_callback=_sse_event,
         )
 
         for source_id, result in results.items():

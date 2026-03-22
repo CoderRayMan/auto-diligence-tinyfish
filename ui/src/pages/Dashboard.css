@@ -86,7 +86,7 @@
 
 .dashboard-body {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 240px 1fr;
   gap: 1rem;
   flex: 1;
   min-height: 0;
@@ -104,7 +104,9 @@
 .dashboard-right {
   display: flex;
   flex-direction: column;
+  gap: 1rem;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* ---- cancel button ---- */

@@ -20,6 +20,8 @@ class ScanStore:
         self._findings: Dict[str, List[Finding]] = {}
         # Each scan gets an asyncio Queue for SSE events; keyed by scan_id
         self._event_queues: Dict[str, asyncio.Queue] = {}
+        # Full history of all events (never drained) — supports late SSE connections
+        self._event_history: Dict[str, List[AgentEvent]] = {}
         self._lock = asyncio.Lock()
 
     # ------------------------------------------------------------------ scans
@@ -28,6 +30,7 @@ class ScanStore:
             self._scans[scan.scan_id] = scan
             self._findings[scan.scan_id] = []
             self._event_queues[scan.scan_id] = asyncio.Queue(maxsize=500)
+            self._event_history[scan.scan_id] = []
 
     async def get(self, scan_id: str) -> Optional[ScanResponse]:
         return self._scans.get(scan_id)
@@ -55,6 +58,11 @@ class ScanStore:
 
     # ------------------------------------------------------------------ events
     async def push_event(self, event: AgentEvent) -> None:
+        # Always append to history (survives drain / reconnect)
+        history = self._event_history.get(event.scan_id)
+        if history is not None:
+            history.append(event)
+
         q = self._event_queues.get(event.scan_id)
         if q is not None:
             try:
@@ -69,6 +77,10 @@ class ScanStore:
 
     async def get_event_queue(self, scan_id: str) -> Optional[asyncio.Queue]:
         return self._event_queues.get(scan_id)
+
+    def get_event_history(self, scan_id: str) -> List[AgentEvent]:
+        """Return all events ever emitted for a scan (for late-joining clients)."""
+        return list(self._event_history.get(scan_id, []))
 
     async def close_event_queue(self, scan_id: str) -> None:
         """Signal SSE consumers that this scan is done (sentinel None)."""

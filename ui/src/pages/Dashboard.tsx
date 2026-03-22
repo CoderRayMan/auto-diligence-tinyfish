@@ -3,12 +3,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type { AgentEvent, Finding, Scan } from "../api/types";
 import {
   cancelScan,
+  getAgentEventHistory,
   getFindings,
   getScan,
   listScans,
   subscribeAgentEvents,
 } from "../api/client";
-import AgentLog from "../components/AgentLog";
+import BrowserGrid from "../components/BrowserGrid";
 import ContextStrip from "../components/ContextStrip";
 import FindingsTable from "../components/FindingsTable";
 import ScorePanel from "../components/ScorePanel";
@@ -83,42 +84,49 @@ export default function Dashboard() {
 
       if (scan.status !== "running" && scan.status !== "pending") return;
 
-      // Subscribe SSE events
-      sseCleanupRef.current = subscribeAgentEvents(
-        scan.scan_id,
-        (ev) => setEvents((prev) => [...prev, ev]),
-        async () => {
-          // Stream done → fetch final state
-          try {
-            const final = await getScan(scan.scan_id);
-            setActiveScan(final);
-            const page = await getFindings(final.scan_id, { page_size: 200 });
-            setFindings(page.findings);
-            setScans((prev) =>
-              prev.map((s) => (s.scan_id === final.scan_id ? final : s))
-            );
-          } catch (e) {
-            setError(String(e));
-          }
+      // Fetch any events emitted before we connected, then open live SSE
+      getAgentEventHistory(scan.scan_id).then((history) => {
+        if (history.length > 0) {
+          setEvents(history);
         }
-      );
 
-      // Poll status every 3 s for progress bar accuracy
-      pollRef.current = setInterval(async () => {
-        try {
-          const updated = await getScan(scan.scan_id);
-          setActiveScan(updated);
-          setScans((prev) =>
-            prev.map((s) => (s.scan_id === updated.scan_id ? updated : s))
-          );
-          if (updated.status !== "running" && updated.status !== "pending") {
-            clearInterval(pollRef.current!);
-            pollRef.current = null;
+        // Subscribe SSE events (only new events after history)
+        sseCleanupRef.current = subscribeAgentEvents(
+          scan.scan_id,
+          (ev) => setEvents((prev) => [...prev, ev]),
+          async () => {
+            // Stream done → fetch final state
+            try {
+              const final = await getScan(scan.scan_id);
+              setActiveScan(final);
+              const page = await getFindings(final.scan_id, { page_size: 200 });
+              setFindings(page.findings);
+              setScans((prev) =>
+                prev.map((s) => (s.scan_id === final.scan_id ? final : s))
+              );
+            } catch (e) {
+              setError(String(e));
+            }
           }
-        } catch (e) {
-          /* ignore polling errors */
-        }
-      }, POLL_INTERVAL_MS);
+        );
+
+        // Poll status every 3 s for progress bar accuracy
+        pollRef.current = setInterval(async () => {
+          try {
+            const updated = await getScan(scan.scan_id);
+            setActiveScan(updated);
+            setScans((prev) =>
+              prev.map((s) => (s.scan_id === updated.scan_id ? updated : s))
+            );
+            if (updated.status !== "running" && updated.status !== "pending") {
+              clearInterval(pollRef.current!);
+              pollRef.current = null;
+            }
+          } catch (e) {
+            /* ignore polling errors */
+          }
+        }, POLL_INTERVAL_MS);
+      });
     },
     []
   );
@@ -241,16 +249,9 @@ export default function Dashboard() {
             <ContextStrip scan={activeScan} />
 
             <div className="dashboard-body">
-              {/* Left column: score + agent log */}
+              {/* Left column: score + cancel */}
               <div className="dashboard-left">
                 <ScorePanel scan={activeScan} />
-                <AgentLog
-                  events={events}
-                  scanRunning={
-                    activeScan.status === "running" ||
-                    activeScan.status === "pending"
-                  }
-                />
                 {(activeScan.status === "running" ||
                   activeScan.status === "pending") && (
                   <button
@@ -263,8 +264,16 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Right column: findings table */}
+              {/* Right column: side-by-side agent cards (browser + log each) + findings */}
               <div className="dashboard-right">
+                <BrowserGrid
+                  events={events}
+                  scan={activeScan}
+                  scanRunning={
+                    activeScan.status === "running" ||
+                    activeScan.status === "pending"
+                  }
+                />
                 <FindingsTable
                   findings={findings}
                   loading={loadingFindings}

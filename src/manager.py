@@ -98,7 +98,8 @@ class DiligenceManager:
                       target: str, 
                       query: str,
                       sources: Optional[List[str]] = None,
-                      callback: Optional[Callable[[ResearchResult], None]] = None) -> Dict[str, ResearchResult]:
+                      callback: Optional[Callable[[ResearchResult], None]] = None,
+                      event_callback: Optional[Callable[[str, str, str, Optional[str]], None]] = None) -> Dict[str, ResearchResult]:
         """
         Execute a research query across configured sources.
         
@@ -123,7 +124,7 @@ class DiligenceManager:
         tasks = self._create_tasks(target, query, sources_to_query)
         
         # Execute tasks concurrently
-        results = await self._execute_tasks(tasks, callback)
+        results = await self._execute_tasks(tasks, callback, event_callback)
         
         self.logger.info(f"Research completed. Success: {sum(1 for r in results.values() if r.status == 'completed')}/{len(results)}")
         
@@ -145,7 +146,8 @@ class DiligenceManager:
     
     async def _execute_tasks(self, 
                               tasks: List[ResearchTask],
-                              callback: Optional[Callable[[ResearchResult], None]]) -> Dict[str, ResearchResult]:
+                              callback: Optional[Callable[[ResearchResult], None]],
+                              event_callback: Optional[Callable[[str, str, str, Optional[str]], None]] = None) -> Dict[str, ResearchResult]:
         """Execute tasks concurrently with semaphore control."""
         
         semaphore = asyncio.Semaphore(self.max_concurrent)
@@ -153,7 +155,7 @@ class DiligenceManager:
         
         async def execute_with_limit(task: ResearchTask):
             async with semaphore:
-                result = await self._execute_single_task(task)
+                result = await self._execute_single_task(task, event_callback)
                 results[task.source_id] = result
                 if callback:
                     callback(result)
@@ -164,7 +166,11 @@ class DiligenceManager:
         
         return results
     
-    async def _execute_single_task(self, task: ResearchTask) -> ResearchResult:
+    async def _execute_single_task(
+        self,
+        task: ResearchTask,
+        event_callback: Optional[Callable[[str, str, str, Optional[str]], None]] = None,
+    ) -> ResearchResult:
         """Execute a single research task."""
         start_time = time.time()
         self.logger.info(f"Starting task {task.task_id} for {task.source_id}")
@@ -173,10 +179,12 @@ class DiligenceManager:
             # Get or create agent for this source
             agent = self.agent_factory.get_agent(task.source_id)
             
-            # Execute research
+            # Execute research — pass event_callback so TinyFish PROGRESS events
+            # are forwarded in real-time to the SSE queue
             data = await agent.research(
                 target=task.target,
-                query=task.query
+                query=task.query,
+                event_callback=event_callback,
             )
             
             execution_time = time.time() - start_time
@@ -187,7 +195,7 @@ class DiligenceManager:
                 status='completed',
                 data=data,
                 execution_time=execution_time,
-                tokens_used=agent.tokens_used
+                tokens_used=getattr(agent, 'tokens_used', 0),
             )
             
         except Exception as e:

@@ -4,13 +4,23 @@ Abstract base agent. All source-specific agents inherit from this.
 
 from __future__ import annotations
 
-import json
 import logging
+import random
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from tinyfish import TinyFish, BrowserProfile, EventType, RunStatus
+from tinyfish import (
+    TinyFish,
+    BrowserProfile,
+    CompleteEvent,
+    EventType,
+    ProgressEvent,
+    StartedEvent,
+    StreamingUrlEvent,
+)
+from tinyfish.runs.types import RunStatus
 
 
 @dataclass
@@ -34,13 +44,23 @@ class BaseAgent(ABC):
 
     Subclasses must implement `_build_goal` and `_normalize_result`.
     The base class handles streaming, error handling, and retry logic.
+
+    Correct TinyFish SDK event types (from tinyfish.agent.types.EventType):
+      STARTED, STREAMING_URL, PROGRESS, HEARTBEAT, COMPLETE
+    There is no ERROR event — failures arrive as COMPLETE with status != COMPLETED.
     """
 
-    def __init__(self, source: SourceConfig, token_vault: Any = None):
+    def __init__(
+        self,
+        source: SourceConfig,
+        token_vault: Any = None,
+        event_callback: Optional[Callable[[str, str, str, Optional[str]], None]] = None,
+    ):
         self.source = source
         self.token_vault = token_vault
-        self.client = TinyFish()
-        self.tokens_used: int = 0
+        # Called with (source_id, tag, message, streaming_url|None)
+        self._event_callback = event_callback
+        self.client = TinyFish()  # reads TINYFISH_API_KEY from env
         self.logger = logging.getLogger(f"agent.{source.id}")
 
     @abstractmethod
@@ -55,57 +75,103 @@ class BaseAgent(ABC):
         profile = self.source.browser_profile.upper()
         return BrowserProfile.STEALTH if profile == "STEALTH" else BrowserProfile.LITE
 
+    def _emit(self, tag: str, message: str, streaming_url: Optional[str] = None) -> None:
+        """Forward event to the SSE callback if one is registered."""
+        self.logger.info(f"[{self.source.id}][{tag}] {message}")
+        if self._event_callback:
+            self._event_callback(self.source.id, tag, message, streaming_url)
+
     def _stream_agent(self, goal: str) -> Optional[Dict[str, Any]]:
-        """Run TinyFish stream and return result_json on success, None on failure."""
+        """
+        Call the TinyFish streaming API and return result on success.
+
+        Event flow (per SDK docs):
+            STARTED → STREAMING_URL → PROGRESS (×N) → HEARTBEAT (×N) → COMPLETE
+
+        The SDK has NO 'ERROR' event type. Failures come as COMPLETE with
+        event.status != RunStatus.COMPLETED and event.error set.
+        """
         max_retries = self.source.retry_policy.get("max_retries", 3)
         backoff = self.source.retry_policy.get("backoff_seconds", 2)
-
-        import time
-        import random
+        jitter_ms = self.source.rate_limit.get("jitter_ms", 0)
 
         for attempt in range(max_retries):
-            jitter = self.source.rate_limit.get("jitter_ms", 0)
-            if jitter > 0:
-                time.sleep(random.randint(0, jitter) / 1000.0)
+            if jitter_ms > 0:
+                time.sleep(random.randint(0, jitter_ms) / 1000.0)
 
             try:
+                self._emit("RUNNING", f"Starting TinyFish agent (attempt {attempt + 1})")
+
                 with self.client.agent.stream(
                     url=self.source.base_url,
                     goal=goal,
                     browser_profile=self._get_browser_profile(),
-                    timeout_seconds=120,
                 ) as stream:
                     for event in stream:
-                        if event.type == EventType.ERROR:
-                            self.logger.warning(
-                                f"[{self.source.id}] Agent warning: {event.error}"
+                        if event.type == EventType.STARTED:
+                            self._emit("RUNNING", f"Run started — id={event.run_id}")
+
+                        elif event.type == EventType.STREAMING_URL:
+                            # Emit the live browser URL so the UI can embed it
+                            self._emit(
+                                "STREAMING_URL",
+                                f"Browser live: {event.streaming_url}",
+                                streaming_url=event.streaming_url,
                             )
+
+                        elif event.type == EventType.PROGRESS:
+                            # Forward each agent step to the UI in real-time
+                            self._emit("RUNNING", event.purpose)
+
+                        elif event.type == EventType.HEARTBEAT:
+                            pass  # keepalive — no action needed
+
                         elif event.type == EventType.COMPLETE:
                             if event.status == RunStatus.COMPLETED:
-                                return event.result_json
+                                self._emit("COMPLETED", "Agent run completed successfully")
+                                return event.result_json  # Dict[str, Any] | None
                             else:
-                                self.logger.error(
-                                    f"[{self.source.id}] Task failed: {event.error}"
+                                err_msg = (
+                                    event.error.message
+                                    if event.error
+                                    else f"status={event.status}"
                                 )
-                                break
+                                self._emit("FAILED", f"Run failed: {err_msg}")
+                                # Only retry on SYSTEM_FAILURE
+                                if event.error and event.error.category == "SYSTEM_FAILURE":
+                                    break  # retry the outer loop
+                                return None  # AGENT_FAILURE — do not retry
+
             except Exception as exc:
-                self.logger.error(
-                    f"[{self.source.id}] Attempt {attempt + 1} error: {exc}"
-                )
+                self._emit("FAILED", f"Exception on attempt {attempt + 1}: {exc}")
                 if attempt < max_retries - 1:
                     time.sleep(backoff * (attempt + 1))
 
         return None
 
-    async def research(self, target: str, query: str) -> List[Dict[str, Any]]:
+    async def research(
+        self,
+        target: str,
+        query: str,
+        event_callback: Optional[Callable[[str, str, str, Optional[str]], None]] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Execute research for the given target and return normalised cases.
         Runs synchronous TinyFish stream in a thread via asyncio.to_thread.
+
+        Args:
+            target: Entity name to research (e.g. "Acme Corp")
+            query: Optional research focus (e.g. "workplace safety violations")
+            event_callback: Optional override for SSE event forwarding.
         """
         import asyncio
 
+        if event_callback:
+            self._event_callback = event_callback
+
         goal = self._build_goal(target, query)
         self.logger.info(f"[{self.source.id}] Researching: {target!r}")
+        self._emit("RUNNING", f"Goal: {goal[:120]}…" if len(goal) > 120 else f"Goal: {goal}")
 
         raw = await asyncio.to_thread(self._stream_agent, goal)
         if raw is None:

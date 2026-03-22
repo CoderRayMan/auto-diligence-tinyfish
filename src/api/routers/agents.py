@@ -57,6 +57,25 @@ async def stream_agent_events(
     return EventSourceResponse(_event_generator(scan_id))
 
 
+@router.get("/events")
+async def get_agent_events(
+    scan_id: str = Query(..., description="Scan ID to get all historical events for"),
+) -> dict:
+    """
+    Return the full event history for a scan.
+    Use this to replay missed events before subscribing to the live SSE stream.
+    """
+    scan = await scan_store.get(scan_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    history = scan_store.get_event_history(scan_id)
+    return {
+        "scan_id": scan_id,
+        "events": [e.model_dump() for e in history],
+    }
+
+
 @router.get("/status")
 async def agent_status(
     scan_id: str = Query(..., description="Scan ID to get agent snapshot for"),

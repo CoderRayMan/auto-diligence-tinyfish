@@ -66,6 +66,16 @@ export async function getFindings(
 // ---------------------------------------------------------- SSE / agents
 
 /**
+ * Fetch the full event history for a scan (emitted before SSE connection opened).
+ */
+export async function getAgentEventHistory(scanId: string): Promise<AgentEvent[]> {
+  const res = await fetch(`${BASE}/agents/events?scan_id=${encodeURIComponent(scanId)}`);
+  if (!res.ok) return [];
+  const data = await res.json() as { events: AgentEvent[] };
+  return data.events ?? [];
+}
+
+/**
  * Open an SSE connection for live agent events.
  * Returns a cleanup function to close the connection.
  */

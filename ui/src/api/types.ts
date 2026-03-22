@@ -64,7 +64,8 @@ export interface FindingsPage {
 export interface AgentEvent {
   scan_id: string;
   source_id: string;
-  agent_tag: "RUNNING" | "COMPLETED" | "WAITING" | "FAILED";
+  agent_tag: "RUNNING" | "COMPLETED" | "WAITING" | "FAILED" | "STREAMING_URL";
   message: string;
   timestamp: string;
+  streaming_url?: string; // Live TinyFish browser stream URL
 }
