@@ -117,3 +117,31 @@
 .primary-btn .icon {
   font-size: 12px;
 }
+
+/* ── Keyboard shortcut hints ───────────────────────────── */
+
+.kbd-hints {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-soft);
+  opacity: 0.6;
+}
+
+.kbd-hints kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-soft);
+  font-size: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-right: 2px;
+}

@@ -8,11 +8,15 @@ import {
   getScan,
   listScans,
   subscribeAgentEvents,
+  rerunScan,
+  getExecutiveReport,
 } from "../api/client";
 import BrowserGrid from "../components/BrowserGrid";
 import ContextStrip from "../components/ContextStrip";
 import FindingsTable from "../components/FindingsTable";
 import ScorePanel from "../components/ScorePanel";
+import Timeline from "../components/Timeline";
+import DetailsDrawer from "../components/DetailsDrawer";
 import "./Dashboard.css";
 
 const POLL_INTERVAL_MS = 3000;
@@ -188,6 +192,45 @@ export default function Dashboard() {
     }
   };
 
+  const handleRerunScan = async () => {
+    if (!activeScan) return;
+    try {
+      const newScan = await rerunScan(activeScan.scan_id);
+      setScans((prev) => [newScan, ...prev]);
+      await selectScan(newScan);
+      startLiveTracking(newScan);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handleShareLink = () => {
+    if (!activeScan) return;
+    const url = `${window.location.origin}/?scan_id=${activeScan.scan_id}`;
+    navigator.clipboard.writeText(url).then(
+      () => setCopied(true),
+      () => setError("Failed to copy link")
+    );
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const [copied, setCopied] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportData, setReportData] = useState<Record<string, unknown> | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "timeline">("table");
+  const [timelineFinding, setTimelineFinding] = useState<Finding | null>(null);
+
+  const handleViewReport = async () => {
+    if (!activeScan) return;
+    try {
+      const report = await getExecutiveReport(activeScan.scan_id);
+      setReportData(report);
+      setShowReport(true);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
   // ---------------------------------------------------------------- empty state
 
   if (!loadingScans && scans.length === 0) {
@@ -249,19 +292,52 @@ export default function Dashboard() {
             <ContextStrip scan={activeScan} />
 
             <div className="dashboard-body">
-              {/* Left column: score + cancel */}
+              {/* Left column: score + actions */}
               <div className="dashboard-left">
-                <ScorePanel scan={activeScan} />
-                {(activeScan.status === "running" ||
-                  activeScan.status === "pending") && (
+                <ScorePanel scan={activeScan} findings={findings} />
+
+                <div className="scan-actions">
+                  {(activeScan.status === "running" ||
+                    activeScan.status === "pending") && (
+                    <button
+                      className="cancel-btn"
+                      onClick={handleCancelScan}
+                      type="button"
+                    >
+                      ✕ Cancel Scan
+                    </button>
+                  )}
+
+                  {activeScan.status === "completed" && (
+                    <>
+                      <button
+                        className="action-btn action-btn--rerun"
+                        onClick={handleRerunScan}
+                        type="button"
+                        title="Re-run this scan with the same parameters"
+                      >
+                        🔄 Re-run
+                      </button>
+                      <button
+                        className="action-btn action-btn--report"
+                        onClick={handleViewReport}
+                        type="button"
+                        title="Generate executive diligence report"
+                      >
+                        📋 Report
+                      </button>
+                    </>
+                  )}
+
                   <button
-                    className="cancel-btn"
-                    onClick={handleCancelScan}
+                    className="action-btn action-btn--share"
+                    onClick={handleShareLink}
                     type="button"
+                    title="Copy shareable link"
                   >
-                    Cancel Scan
+                    {copied ? "✓ Copied!" : "🔗 Share"}
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Right column: side-by-side agent cards (browser + log each) + findings */}
@@ -274,12 +350,124 @@ export default function Dashboard() {
                     activeScan.status === "pending"
                   }
                 />
-                <FindingsTable
-                  findings={findings}
-                  loading={loadingFindings}
-                />
+                <div className="view-toggle">
+                  <button
+                    className={`view-toggle-btn ${viewMode === "table" ? "view-toggle-btn--active" : ""}`}
+                    onClick={() => setViewMode("table")}
+                    type="button"
+                  >
+                    Table
+                  </button>
+                  <button
+                    className={`view-toggle-btn ${viewMode === "timeline" ? "view-toggle-btn--active" : ""}`}
+                    onClick={() => setViewMode("timeline")}
+                    type="button"
+                  >
+                    Timeline
+                  </button>
+                </div>
+
+                {viewMode === "table" ? (
+                  <FindingsTable
+                    findings={findings}
+                    loading={loadingFindings}
+                    scanId={activeScan.scan_id}
+                  />
+                ) : (
+                  <Timeline
+                    findings={findings}
+                    onSelect={(f) => setTimelineFinding(f)}
+                  />
+                )}
+
+                {timelineFinding && (
+                  <DetailsDrawer
+                    finding={timelineFinding}
+                    onClose={() => setTimelineFinding(null)}
+                  />
+                )}
               </div>
             </div>
+
+            {/* Executive report modal */}
+            {showReport && reportData && (
+              <>
+                <div className="report-overlay" onClick={() => setShowReport(false)} />
+                <div className="report-modal">
+                  <div className="report-header">
+                    <h3>{reportData.title as string}</h3>
+                    <button
+                      className="drawer-close"
+                      onClick={() => setShowReport(false)}
+                      type="button"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="report-subtitle">{reportData.subtitle as string}</p>
+
+                  <div className="report-section">
+                    <h4>Executive Summary</h4>
+                    <p>{reportData.executive_summary as string}</p>
+                  </div>
+
+                  {(reportData.key_metrics as Record<string, unknown>) && (
+                    <div className="report-section">
+                      <h4>Key Metrics</h4>
+                      <div className="report-metrics-grid">
+                        {Object.entries(reportData.key_metrics as Record<string, unknown>).map(
+                          ([key, val]) => (
+                            <div key={key} className="report-metric">
+                              <span className="report-metric-label">
+                                {key.replace(/_/g, " ")}
+                              </span>
+                              <span className="report-metric-value">{String(val)}</span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {Array.isArray(reportData.recommendations) &&
+                    (reportData.recommendations as string[]).length > 0 && (
+                      <div className="report-section">
+                        <h4>Recommendations</h4>
+                        <ul className="report-recs">
+                          {(reportData.recommendations as string[]).map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                  {Array.isArray(reportData.source_breakdown) &&
+                    (reportData.source_breakdown as Array<Record<string, unknown>>).length > 0 && (
+                      <div className="report-section">
+                        <h4>Source Breakdown</h4>
+                        <table className="report-table">
+                          <thead>
+                            <tr>
+                              <th>Source</th>
+                              <th>Findings</th>
+                              <th>Exposure</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(reportData.source_breakdown as Array<Record<string, unknown>>).map((sb) => (
+                              <tr key={sb.source_id as string}>
+                                <td>{sb.source_id as string}</td>
+                                <td>{String(sb.findings_count)}</td>
+                                <td>{sb.exposure as string}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                </div>
+              </>
+            )}
           </>
         ) : (
           loadingScans && (

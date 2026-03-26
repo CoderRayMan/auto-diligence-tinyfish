@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import type { Finding } from "../api/types";
+import { downloadFindingsCSV } from "../api/client";
 import DetailsDrawer from "./DetailsDrawer";
 import "./FindingsTable.css";
 
 interface Props {
   findings: Finding[];
   loading?: boolean;
+  scanId?: string;
 }
 
 const SEV_CLASS: Record<string, string> = {
@@ -30,14 +32,23 @@ function formatPenalty(amount: number): string {
   return `$${amount}`;
 }
 
-export default function FindingsTable({ findings, loading }: Props) {
+export default function FindingsTable({ findings, loading, scanId }: Props) {
   const [selected, setSelected] = useState<Finding | null>(null);
   const [sortKey, setSortKey] = useState<"severity" | "penalty_amount" | "decision_date">("severity");
   const [sortAsc, setSortAsc] = useState(false);
+  const [sevFilter, setSevFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const SEV_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
-  const sorted = [...findings].sort((a, b) => {
+  // Apply filters first
+  const filtered = findings.filter((f) => {
+    if (sevFilter && f.severity !== sevFilter) return false;
+    if (statusFilter && f.status !== statusFilter) return false;
+    return true;
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
     if (sortKey === "severity") {
       cmp = (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9);
@@ -54,24 +65,92 @@ export default function FindingsTable({ findings, loading }: Props) {
     else { setSortKey(key); setSortAsc(false); }
   }
 
+  const totalExposure = findings.reduce((sum, f) => sum + f.penalty_amount, 0);
+
   return (
     <section className="findings-panel">
       <div className="section-header">
-        <span>Findings · Prioritised by risk</span>
-        <div className="sort-pills">
-          {(["severity", "penalty_amount", "decision_date"] as const).map((k) => (
+        <span>
+          Findings · {filtered.length} of {findings.length} result{findings.length !== 1 && "s"}
+          {totalExposure > 0 && (
+            <span className="exposure-badge">
+              {" "}· Total exposure: {formatPenalty(totalExposure)}
+            </span>
+          )}
+        </span>
+        <div className="header-actions">
+          {scanId && findings.length > 0 && (
             <button
-              key={k}
-              className={`sort-pill ${sortKey === k ? "sort-pill--active" : ""}`}
-              onClick={() => toggleSort(k)}
+              className="export-btn"
               type="button"
+              onClick={() => downloadFindingsCSV(scanId)}
+              title="Download findings as CSV"
             >
-              {k === "penalty_amount" ? "Penalty" : k === "decision_date" ? "Date" : "Severity"}
-              {sortKey === k && (sortAsc ? " ↑" : " ↓")}
+              ⬇ CSV
             </button>
-          ))}
+          )}
+          <div className="sort-pills">
+            {(["severity", "penalty_amount", "decision_date"] as const).map((k) => (
+              <button
+                key={k}
+                className={`sort-pill ${sortKey === k ? "sort-pill--active" : ""}`}
+                onClick={() => toggleSort(k)}
+                type="button"
+              >
+                {k === "penalty_amount" ? "Penalty" : k === "decision_date" ? "Date" : "Severity"}
+                {sortKey === k && (sortAsc ? " ↑" : " ↓")}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Filter bar */}
+      {findings.length > 0 && (
+        <div className="filter-bar">
+          <span className="filter-label">Filter:</span>
+          <div className="filter-pills">
+            {(["critical", "high", "medium", "low"] as const).map((sev) => {
+              const count = findings.filter((f) => f.severity === sev).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={sev}
+                  className={`filter-pill filter-pill--${sev} ${sevFilter === sev ? "filter-pill--active" : ""}`}
+                  onClick={() => setSevFilter(sevFilter === sev ? null : sev)}
+                  type="button"
+                >
+                  ● {sev} ({count})
+                </button>
+              );
+            })}
+            <span className="filter-divider">|</span>
+            {(["open", "settled", "closed"] as const).map((st) => {
+              const count = findings.filter((f) => f.status === st).length;
+              if (count === 0) return null;
+              return (
+                <button
+                  key={st}
+                  className={`filter-pill filter-pill--status ${statusFilter === st ? "filter-pill--active" : ""}`}
+                  onClick={() => setStatusFilter(statusFilter === st ? null : st)}
+                  type="button"
+                >
+                  {st} ({count})
+                </button>
+              );
+            })}
+            {(sevFilter || statusFilter) && (
+              <button
+                className="filter-clear"
+                type="button"
+                onClick={() => { setSevFilter(null); setStatusFilter(null); }}
+              >
+                ✕ Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="findings-empty">Loading findings…</div>

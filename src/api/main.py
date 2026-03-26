@@ -16,7 +16,7 @@ load_dotenv()  # Load .env before any SDK/config imports
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import scans_router, findings_router, agents_router
+from .routers import scans_router, findings_router, agents_router, personas_router
 
 
 @asynccontextmanager
@@ -51,6 +51,7 @@ app.add_middleware(
 app.include_router(scans_router, prefix="/api")
 app.include_router(findings_router, prefix="/api")
 app.include_router(agents_router, prefix="/api")
+app.include_router(personas_router, prefix="/api")
 
 
 @app.get("/api/health")

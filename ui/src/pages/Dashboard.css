@@ -199,6 +199,219 @@
   padding: 0 0.25rem;
 }
 
+/* ── Scan action buttons ───────────────────────────────── */
+
+.scan-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: inherit;
+  text-align: left;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.action-btn--rerun:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft, rgba(56, 189, 248, 0.08));
+}
+
+.action-btn--report:hover {
+  border-color: var(--success, #4ade80);
+  color: var(--success, #4ade80);
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.action-btn--share:hover {
+  border-color: var(--warning, #fbbf24);
+  color: var(--warning, #fbbf24);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+/* ── Executive report modal ────────────────────────────── */
+
+.report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.report-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 910;
+  width: min(640px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--bg-elevated, #1e293b);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg, 12px);
+  padding: 24px 28px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.report-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text, #f1f5f9);
+}
+
+.report-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-soft, #94a3b8);
+  margin: 0 0 20px;
+}
+
+.report-section {
+  margin-bottom: 20px;
+}
+
+.report-section h4 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent, #38bdf8);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.report-section p {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-soft, #94a3b8);
+  margin: 0;
+}
+
+.report-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.report-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.report-metric-label {
+  font-size: 0.68rem;
+  text-transform: capitalize;
+  color: var(--text-soft, #94a3b8);
+}
+
+.report-metric-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text, #f1f5f9);
+}
+
+.report-recs {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.report-recs li {
+  font-size: 0.8rem;
+  color: var(--text-soft, #94a3b8);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.report-table th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-soft, #94a3b8);
+  font-weight: 600;
+}
+
+.report-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.5);
+  color: var(--text, #f1f5f9);
+}
+
+/* ── View toggle (Table / Timeline) ────────────────────── */
+
+.view-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+}
+
+.view-toggle-btn {
+  padding: 5px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text-soft);
+  transition: all 120ms ease;
+}
+
+.view-toggle-btn:not(:last-child) {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.view-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.view-toggle-btn--active {
+  background: var(--accent-soft, rgba(56, 189, 248, 0.1));
+  color: var(--accent);
+}
+
 /* ---- responsive: collapse sidebar on narrow ---- */
 @media (max-width: 900px) {
   .dashboard-body {

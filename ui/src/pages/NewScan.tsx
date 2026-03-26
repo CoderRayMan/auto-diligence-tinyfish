@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ScanRequest } from "../api/types";
-import { createScan } from "../api/client";
+import type { Persona, ScanRequest } from "../api/types";
+import { createScan, listPersonas } from "../api/client";
 import "./NewScan.css";
 
 const ALL_SOURCES = [
@@ -17,6 +17,7 @@ interface FormState {
   query: string;
   sources: string[];
   maxAgents: number;
+  personaId: string | null;
 }
 
 function validate(f: FormState): string | null {
@@ -32,17 +33,52 @@ function validate(f: FormState): string | null {
 export default function NewScan() {
   const navigate = useNavigate();
 
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null);
+
   const [form, setForm] = useState<FormState>({
     target: "",
     query: "",
     sources: ALL_SOURCES.map((s) => s.id),
     maxAgents: 5,
+    personaId: null,
   });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // ---------------------------------------------------------------- helpers
+  // ── Load personas on mount
+  useEffect(() => {
+    listPersonas()
+      .then(setPersonas)
+      .catch(() => setPersonas([]));
+  }, []);
 
+  // ── Persona selection
+  const selectPersona = (p: Persona | null) => {
+    setSelectedPersona(p);
+    if (p) {
+      setForm((prev) => ({
+        ...prev,
+        personaId: p.id,
+        sources: p.default_sources,
+        query: p.default_query,
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        personaId: null,
+        sources: ALL_SOURCES.map((s) => s.id),
+        query: "",
+      }));
+    }
+  };
+
+  const selectDemoTarget = (name: string) => {
+    setForm((prev) => ({ ...prev, target: name }));
+  };
+
+  // ── Source toggling
   const toggleSource = (id: string) => {
     setForm((prev) => ({
       ...prev,
@@ -52,6 +88,7 @@ export default function NewScan() {
     }));
   };
 
+  // ── Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const err = validate(form);
@@ -67,6 +104,7 @@ export default function NewScan() {
         target: form.target.trim(),
         query: form.query.trim() || undefined,
         sources: form.sources,
+        persona_id: form.personaId ?? undefined,
         max_concurrent_agents: form.maxAgents,
       };
       const scan = await createScan(req);
@@ -77,109 +115,189 @@ export default function NewScan() {
     }
   };
 
-  // ---------------------------------------------------------------- render
-
+  // ── Render
   return (
     <main className="new-scan-page">
       <div className="new-scan-card">
         <header className="new-scan-header">
           <h2>New Diligence Scan</h2>
-          <p>Configure a multi-source regulatory research run for an entity.</p>
+          <p>Choose a role, pick a target, and launch a multi-agent regulatory sweep.</p>
         </header>
 
+        {/* ── Step 1: Persona selector */}
+        <section className="persona-section">
+          <h3 className="section-title">① Choose your role</h3>
+          <div className="persona-grid">
+            {personas.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`persona-card ${selectedPersona?.id === p.id ? "persona-card--active" : ""}`}
+                style={{ "--persona-color": p.color } as React.CSSProperties}
+                onClick={() => selectPersona(selectedPersona?.id === p.id ? null : p)}
+                disabled={submitting}
+              >
+                <span className="persona-icon">{p.icon}</span>
+                <span className="persona-label">{p.label}</span>
+                <span className="persona-desc">{p.description}</span>
+                <div className="persona-focus">
+                  {p.focus_areas.map((f) => (
+                    <span key={f} className="focus-tag">{f}</span>
+                  ))}
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <form className="new-scan-form" onSubmit={handleSubmit} noValidate>
-          {/* Target */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="target">
-              Entity Name <span className="required">*</span>
-            </label>
-            <input
-              id="target"
-              className="form-input"
-              type="text"
-              placeholder="e.g. Acme Corporation"
-              value={form.target}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, target: e.target.value }))
-              }
-              disabled={submitting}
-              autoFocus
-              required
-            />
-          </div>
+          {/* ── Step 2: Target */}
+          <section className="target-section">
+            <h3 className="section-title">② Enter target entity</h3>
 
-          {/* Query */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="query">
-              Research Focus{" "}
-              <span className="form-hint">(optional)</span>
-            </label>
-            <input
-              id="query"
-              className="form-input"
-              type="text"
-              placeholder="e.g. workplace safety violations last 5 years"
-              value={form.query}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, query: e.target.value }))
-              }
-              disabled={submitting}
-            />
-          </div>
-
-          {/* Sources */}
-          <fieldset className="form-group">
-            <legend className="form-label">
-              Regulatory Sources <span className="required">*</span>
-            </legend>
-            <div className="sources-grid">
-              {ALL_SOURCES.map((src) => {
-                const checked = form.sources.includes(src.id);
-                return (
-                  <label
-                    key={src.id}
-                    className={`source-chip ${checked ? "source-chip--on" : ""}`}
+            {/* Demo quick-start targets */}
+            {selectedPersona && selectedPersona.demo_targets.length > 0 && (
+              <div className="demo-targets">
+                <span className="demo-label">Quick start:</span>
+                {selectedPersona.demo_targets.map((dt) => (
+                  <button
+                    key={dt.name}
+                    type="button"
+                    className={`demo-target-btn ${form.target === dt.name ? "demo-target-btn--active" : ""}`}
+                    onClick={() => selectDemoTarget(dt.name)}
+                    disabled={submitting}
+                    title={dt.description}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleSource(src.id)}
-                      disabled={submitting}
-                    />
-                    <span className="source-chip-label">{src.label}</span>
-                    <span className="source-chip-desc">{src.description}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
+                    {dt.name}
+                  </button>
+                ))}
+              </div>
+            )}
 
-          {/* Max concurrent agents */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="maxAgents">
-              Max Concurrent Agents{" "}
-              <span className="form-hint">({form.maxAgents})</span>
-            </label>
-            <input
-              id="maxAgents"
-              className="form-range"
-              type="range"
-              min={1}
-              max={10}
-              value={form.maxAgents}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  maxAgents: Number(e.target.value),
-                }))
-              }
-              disabled={submitting}
-            />
-            <div className="range-labels">
-              <span>1 (sequential)</span>
-              <span>10 (max parallel)</span>
+            <div className="form-group">
+              <label className="form-label" htmlFor="target">
+                Entity Name <span className="required">*</span>
+              </label>
+              <input
+                id="target"
+                className="form-input"
+                type="text"
+                placeholder="e.g. Tesla Inc, Johnson & Johnson, Boeing Company"
+                value={form.target}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, target: e.target.value }))
+                }
+                disabled={submitting}
+                autoFocus
+                required
+              />
             </div>
-          </div>
+          </section>
+
+          {/* ── Advanced settings toggle */}
+          <button
+            type="button"
+            className="advanced-toggle"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? "▾ Hide" : "▸ Show"} advanced settings
+          </button>
+
+          {showAdvanced && (
+            <div className="advanced-section">
+              {/* Query override */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="query">
+                  Research Focus
+                  <span className="form-hint"> (auto-set by persona)</span>
+                </label>
+                <textarea
+                  id="query"
+                  className="form-input form-textarea"
+                  placeholder="e.g. workplace safety violations last 5 years"
+                  value={form.query}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, query: e.target.value }))
+                  }
+                  disabled={submitting}
+                  rows={3}
+                />
+              </div>
+
+              {/* Sources */}
+              <fieldset className="form-group">
+                <legend className="form-label">
+                  Regulatory Sources <span className="required">*</span>
+                </legend>
+                <div className="sources-grid">
+                  {ALL_SOURCES.map((src) => {
+                    const checked = form.sources.includes(src.id);
+                    return (
+                      <label
+                        key={src.id}
+                        className={`source-chip ${checked ? "source-chip--on" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSource(src.id)}
+                          disabled={submitting}
+                        />
+                        <span className="source-chip-label">{src.label}</span>
+                        <span className="source-chip-desc">{src.description}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              {/* Max concurrent agents */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="maxAgents">
+                  Max Concurrent Agents
+                  <span className="form-hint"> ({form.maxAgents})</span>
+                </label>
+                <input
+                  id="maxAgents"
+                  className="form-range"
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={form.maxAgents}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      maxAgents: Number(e.target.value),
+                    }))
+                  }
+                  disabled={submitting}
+                />
+                <div className="range-labels">
+                  <span>1 (sequential)</span>
+                  <span>10 (max parallel)</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Summary strip */}
+          {form.target.trim() && (
+            <div className="scan-summary">
+              <div className="summary-icon">⚡</div>
+              <div className="summary-text">
+                <strong>Ready:</strong> Research{" "}
+                <em>{form.target.trim()}</em> across{" "}
+                <strong>{form.sources.length}</strong> regulatory source
+                {form.sources.length !== 1 && "s"}
+                {selectedPersona && (
+                  <>
+                    {" "}as <strong>{selectedPersona.label}</strong>{" "}
+                    {selectedPersona.icon}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Form error */}
           {formError && (

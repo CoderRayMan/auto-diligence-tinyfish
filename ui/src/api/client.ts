@@ -3,6 +3,7 @@ import type {
   ScanRequest,
   FindingsPage,
   AgentEvent,
+  Persona,
 } from "./types";
 
 const BASE = "/api";
@@ -110,5 +111,59 @@ export function subscribeAgentEvents(
 
 export async function getAgentStatus(scanId: string) {
   const res = await fetch(`${BASE}/agents/status?scan_id=${scanId}`);
+  return _json<Record<string, unknown>>(res);
+}
+
+// --------------------------------------------------------------- personas
+
+export async function listPersonas(): Promise<Persona[]> {
+  const res = await fetch(`${BASE}/personas`);
+  return _json<Persona[]>(res);
+}
+
+// --------------------------------------------------------- findings extras
+
+/**
+ * Download findings as CSV.  Opens a download link in the browser.
+ */
+export function downloadFindingsCSV(scanId: string): void {
+  const url = `${BASE}/findings/export/csv?scan_id=${encodeURIComponent(scanId)}`;
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/**
+ * Fetch aggregate stats / executive summary for a scan.
+ */
+export async function getFindingsStats(scanId: string): Promise<Record<string, unknown>> {
+  const res = await fetch(`${BASE}/findings/stats/summary?scan_id=${encodeURIComponent(scanId)}`);
+  return _json<Record<string, unknown>>(res);
+}
+
+/**
+ * Re-run a previous scan with the same parameters.
+ */
+export async function rerunScan(scanId: string): Promise<Scan> {
+  const res = await fetch(`${BASE}/scans/${scanId}/rerun`, { method: "POST" });
+  return _json<Scan>(res);
+}
+
+/**
+ * Fetch the structured executive report for a completed scan.
+ */
+export async function getExecutiveReport(scanId: string): Promise<Record<string, unknown>> {
+  const res = await fetch(`${BASE}/findings/report/executive?scan_id=${encodeURIComponent(scanId)}`);
+  return _json<Record<string, unknown>>(res);
+}
+
+/**
+ * Compare two scans side-by-side.
+ */
+export async function compareScans(scanA: string, scanB: string): Promise<Record<string, unknown>> {
+  const res = await fetch(`${BASE}/findings/compare?scan_a=${encodeURIComponent(scanA)}&scan_b=${encodeURIComponent(scanB)}`);
   return _json<Record<string, unknown>>(res);
 }

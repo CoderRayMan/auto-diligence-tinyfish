@@ -8,6 +8,7 @@ export interface ScanRequest {
   target: string;
   query?: string;
   sources?: string[];
+  persona_id?: string;
   date_from?: string;
   date_to?: string;
   max_concurrent_agents?: number;
@@ -25,6 +26,8 @@ export interface Scan {
   scan_id: string;
   status: ScanStatus;
   target: string;
+  query: string;
+  persona_id?: string;
   created_at: string;
   completed_at?: string;
   sources_total: number;
@@ -68,4 +71,24 @@ export interface AgentEvent {
   message: string;
   timestamp: string;
   streaming_url?: string; // Live TinyFish browser stream URL
+}
+
+// ── Persona types ─────────────────────────────────────────
+
+export interface DemoTarget {
+  name: string;
+  description: string;
+  query_override?: string;
+}
+
+export interface Persona {
+  id: string;
+  label: string;
+  icon: string;
+  description: string;
+  color: string;
+  default_sources: string[];
+  default_query: string;
+  focus_areas: string[];
+  demo_targets: DemoTarget[];
 }

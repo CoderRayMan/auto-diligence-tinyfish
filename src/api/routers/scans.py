@@ -19,6 +19,7 @@ from ..schemas import (
     SourceResult,
     Finding,
     AgentEvent,
+    get_persona,
 )
 from ..store import scan_store
 
@@ -187,12 +188,23 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
 async def create_scan(request: ScanRequest, background_tasks: BackgroundTasks) -> ScanResponse:
     """Start a new diligence scan. Returns immediately; poll GET /scans/{id} for status."""
     scan_id = str(uuid.uuid4())
+
+    # Resolve persona defaults (persona provides sources/query if not overridden)
+    persona = get_persona(request.persona_id) if request.persona_id else None
+    if persona:
+        if not request.sources:
+            request.sources = persona.default_sources
+        if request.query == "regulatory violations and enforcement actions":
+            request.query = f"{persona.default_query} for {{target}}"
+
     sources = request.sources or _available_sources()
 
     scan = ScanResponse(
         scan_id=scan_id,
         status=ScanStatus.pending,
         target=request.target,
+        query=request.query,
+        persona_id=request.persona_id,
         created_at=datetime.utcnow(),
         sources_total=len(sources),
         sources_completed=0,
@@ -229,3 +241,37 @@ async def cancel_scan(scan_id: str) -> None:
         return
     await scan_store.update(scan_id, status=ScanStatus.cancelled)
     await scan_store.close_event_queue(scan_id)
+
+
+@router.post("/{scan_id}/rerun", response_model=ScanResponse, status_code=202)
+async def rerun_scan(scan_id: str, background_tasks: BackgroundTasks) -> ScanResponse:
+    """Re-run a previous scan with the same parameters. Creates a new scan."""
+    original = await scan_store.get(scan_id)
+    if original is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    request = ScanRequest(
+        target=original.target,
+        query=original.query,
+        sources=[r.source_id for r in original.source_results] if original.source_results else None,
+        persona_id=original.persona_id,
+        max_concurrent_agents=5,
+    )
+
+    new_scan_id = str(uuid.uuid4())
+    sources = request.sources or _available_sources()
+
+    scan = ScanResponse(
+        scan_id=new_scan_id,
+        status=ScanStatus.pending,
+        target=request.target,
+        query=request.query,
+        persona_id=request.persona_id,
+        created_at=datetime.utcnow(),
+        sources_total=len(sources),
+        sources_completed=0,
+        sources_failed=0,
+    )
+    await scan_store.create(scan)
+    background_tasks.add_task(_run_scan_background, new_scan_id, request)
+    return scan

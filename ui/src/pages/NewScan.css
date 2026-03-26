@@ -13,7 +13,7 @@
   border-radius: 12px;
   padding: 2rem;
   width: 100%;
-  max-width: 640px;
+  max-width: 900px;
 }
 
 .new-scan-header {
@@ -230,4 +230,194 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ══ Persona selector ══════════════════════════════════════ */
+
+.persona-section {
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.persona-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.persona-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1rem;
+  background: var(--surface-raised);
+  border: 2px solid var(--border-subtle);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+}
+
+.persona-card:hover:not(:disabled) {
+  border-color: var(--persona-color, var(--accent));
+  background: color-mix(in srgb, var(--persona-color, var(--accent)) 6%, var(--surface-raised));
+  transform: translateY(-1px);
+}
+
+.persona-card--active {
+  border-color: var(--persona-color, var(--accent));
+  background: color-mix(in srgb, var(--persona-color, var(--accent)) 10%, var(--surface-raised));
+  box-shadow: 0 0 0 1px var(--persona-color, var(--accent));
+}
+
+.persona-icon {
+  font-size: 1.5rem;
+}
+
+.persona-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.persona-card--active .persona-label {
+  color: var(--persona-color, var(--accent));
+}
+
+.persona-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.persona-focus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+}
+
+.focus-tag {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.persona-card--active .focus-tag {
+  background: color-mix(in srgb, var(--persona-color, var(--accent)) 18%, transparent);
+  color: var(--persona-color, var(--accent));
+}
+
+/* ══ Target section ════════════════════════════════════════ */
+
+.target-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.demo-targets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.demo-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.demo-target-btn {
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.demo-target-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.demo-target-btn--active {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ══ Advanced toggle ═══════════════════════════════════════ */
+
+.advanced-toggle {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.4rem 0;
+  text-align: left;
+  transition: color 0.15s;
+}
+
+.advanced-toggle:hover {
+  color: var(--accent);
+}
+
+.advanced-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* ══ Summary strip ═════════════════════════════════════════ */
+
+.scan-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.summary-icon {
+  font-size: 1.2rem;
+}
+
+.summary-text em {
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 600;
 }
