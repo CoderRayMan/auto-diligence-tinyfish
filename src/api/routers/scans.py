@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
@@ -44,7 +44,7 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
     await scan_store.update(scan_id, status=ScanStatus.running)
 
     # Emit "RUNNING" event per source at start
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     for src in sources:
         await scan_store.push_event(
             AgentEvent(
@@ -65,7 +65,7 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
     # Build a thread-safe SSE callback that bridges TinyFish PROGRESS events
     # into the asyncio SSE queue.  agent.research() runs inside asyncio.to_thread()
     # so we capture the running event loop here and use run_coroutine_threadsafe.
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def _sse_event(source_id: str, tag: str, message: str, streaming_url: str | None = None) -> None:
         """Called from the TinyFish stream thread; pushes to the async SSE queue."""
@@ -75,12 +75,37 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
                     scan_id=scan_id,
                     source_id=source_id,
                     agent_tag=tag,
-                    message=message,
-                    timestamp=datetime.utcnow().isoformat(),
+                    message=message or "",
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                     streaming_url=streaming_url,
                 )
             ),
             loop,
+        )
+
+    # Incremental tracking — updated as each source agent finishes.
+    _partial_source_results: List[SourceResult] = []
+    _partial_lock = asyncio.Lock()
+
+    async def _source_done_callback(result) -> None:
+        """Called (awaited) after each source agent completes. Updates scan progress live."""
+        sr = SourceResult(
+            source_id=result.source_id,
+            status=result.status,
+            records_found=len(result.data) if result.data else 0,
+            execution_time_s=round(result.execution_time, 2),
+            error=result.error,
+        )
+        async with _partial_lock:
+            _partial_source_results.append(sr)
+            completed = sum(1 for r in _partial_source_results if r.status == "completed")
+            failed = sum(1 for r in _partial_source_results if r.status == "failed")
+            current_results = list(_partial_source_results)
+        await scan_store.update(
+            scan_id,
+            sources_completed=completed,
+            sources_failed=failed,
+            source_results=current_results,
         )
 
     source_results: List[SourceResult] = []
@@ -90,11 +115,12 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
         results = await manager.research(
             target=request.target,
             query=request.query,
+            callback=_source_done_callback,
             event_callback=_sse_event,
         )
 
         for source_id, result in results.items():
-            ts = datetime.utcnow().isoformat()
+            ts = datetime.now(timezone.utc).isoformat()
             tag = "COMPLETED" if result.status == "completed" else "FAILED"
             msg = (
                 f"Found {len(result.data)} records"
@@ -110,17 +136,11 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
                     timestamp=ts,
                 )
             )
-            source_results.append(
-                SourceResult(
-                    source_id=source_id,
-                    status=result.status,
-                    records_found=len(result.data),
-                    execution_time_s=round(result.execution_time, 2),
-                    error=result.error,
-                )
-            )
             if result.status == "completed":
                 all_raw[source_id] = {"status": "completed", "cases": result.data}
+
+        # Use the incrementally-built source_results from the callback
+        source_results = list(_partial_source_results)
 
         # Aggregate and score
         diligence_findings = ResultAggregator.aggregate_all(all_raw)
@@ -151,7 +171,7 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
         await scan_store.update(
             scan_id,
             status=ScanStatus.completed,
-            completed_at=datetime.utcnow(),
+            completed_at=datetime.now(timezone.utc),
             sources_total=len(sources),
             sources_completed=sum(1 for r in source_results if r.status == "completed"),
             sources_failed=sum(1 for r in source_results if r.status == "failed"),
@@ -165,7 +185,7 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
         await scan_store.update(
             scan_id,
             status=ScanStatus.failed,
-            completed_at=datetime.utcnow(),
+            completed_at=datetime.now(timezone.utc),
             source_results=source_results,
         )
         await scan_store.push_event(
@@ -174,7 +194,7 @@ async def _run_scan_background(scan_id: str, request: ScanRequest) -> None:
                 source_id="manager",
                 agent_tag="FAILED",
                 message=str(exc),
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
             )
         )
     finally:
@@ -205,7 +225,7 @@ async def create_scan(request: ScanRequest, background_tasks: BackgroundTasks) -
         target=request.target,
         query=request.query,
         persona_id=request.persona_id,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         sources_total=len(sources),
         sources_completed=0,
         sources_failed=0,
@@ -267,7 +287,7 @@ async def rerun_scan(scan_id: str, background_tasks: BackgroundTasks) -> ScanRes
         target=request.target,
         query=request.query,
         persona_id=request.persona_id,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         sources_total=len(sources),
         sources_completed=0,
         sources_failed=0,

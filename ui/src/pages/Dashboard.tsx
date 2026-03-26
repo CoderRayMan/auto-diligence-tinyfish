@@ -97,7 +97,19 @@ export default function Dashboard() {
         // Subscribe SSE events (only new events after history)
         sseCleanupRef.current = subscribeAgentEvents(
           scan.scan_id,
-          (ev) => setEvents((prev) => [...prev, ev]),
+          (ev) =>
+            setEvents((prev) => {
+              // Deduplicate: the SSE queue replays history events, so skip any
+              // event that's identical to one already captured from history.
+              const isDup = prev.some(
+                (e) =>
+                  e.timestamp === ev.timestamp &&
+                  e.source_id === ev.source_id &&
+                  e.agent_tag === ev.agent_tag &&
+                  e.message === ev.message
+              );
+              return isDup ? prev : [...prev, ev];
+            }),
           async () => {
             // Stream done → fetch final state
             try {
@@ -125,6 +137,17 @@ export default function Dashboard() {
             if (updated.status !== "running" && updated.status !== "pending") {
               clearInterval(pollRef.current!);
               pollRef.current = null;
+              // Safety fallback: if SSE "done" was missed, fetch findings now
+              if (updated.status === "completed") {
+                setFindings((prev) => {
+                  if (prev.length === 0) {
+                    getFindings(updated.scan_id, { page_size: 200 })
+                      .then((page) => setFindings(page.findings))
+                      .catch(() => {});
+                  }
+                  return prev;
+                });
+              }
             }
           } catch (e) {
             /* ignore polling errors */

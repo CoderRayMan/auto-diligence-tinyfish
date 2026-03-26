@@ -102,6 +102,8 @@ class BaseAgent(ABC):
             try:
                 self._emit("RUNNING", f"Starting TinyFish agent (attempt {attempt + 1})")
 
+                run_id: Optional[str] = None
+
                 with self.client.agent.stream(
                     url=self.source.base_url,
                     goal=goal,
@@ -109,6 +111,7 @@ class BaseAgent(ABC):
                 ) as stream:
                     for event in stream:
                         if event.type == EventType.STARTED:
+                            run_id = event.run_id
                             self._emit("RUNNING", f"Run started — id={event.run_id}")
 
                         elif event.type == EventType.STREAMING_URL:
@@ -128,8 +131,26 @@ class BaseAgent(ABC):
 
                         elif event.type == EventType.COMPLETE:
                             if event.status == RunStatus.COMPLETED:
+                                result_data = event.result_json
+
+                                # The streaming CompleteEvent sometimes delivers
+                                # result_json=None even when the run produced data.
+                                # Fall back to the REST runs API to fetch the result.
+                                if result_data is None and run_id:
+                                    self._emit("RUNNING", "result_json absent in stream — fetching via runs API")
+                                    try:
+                                        run_record = self.client.runs.get(run_id)
+                                        result_data = run_record.result
+                                    except Exception as fetch_exc:
+                                        self._emit("RUNNING", f"runs.get fallback failed: {fetch_exc}")
+
+                                if result_data is None:
+                                    self._emit("RUNNING", "TinyFish result_json is None — no data returned")
+                                else:
+                                    top_keys = list(result_data.keys()) if isinstance(result_data, dict) else type(result_data).__name__
+                                    self._emit("RUNNING", f"TinyFish result keys: {top_keys}")
                                 self._emit("COMPLETED", "Agent run completed successfully")
-                                return event.result_json  # Dict[str, Any] | None
+                                return result_data  # Dict[str, Any] | None
                             else:
                                 err_msg = (
                                     event.error.message
