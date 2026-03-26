@@ -35,7 +35,7 @@ async def list_findings(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings: List[Finding] = scan_store.get_findings(scan_id)
+    findings: List[Finding] = await scan_store.get_findings_async(scan_id)
 
     # Apply filters
     if severity:
@@ -61,7 +61,7 @@ async def list_findings(
 @router.get("/{finding_id}", response_model=Finding)
 async def get_finding(finding_id: str, scan_id: str = Query(...)) -> Finding:
     """Get a single finding by ID."""
-    findings = scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings_async(scan_id)
     for f in findings:
         if f.finding_id == finding_id:
             return f
@@ -86,7 +86,7 @@ async def export_findings_csv(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings_async(scan_id)
 
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=_CSV_COLUMNS, extrasaction="ignore")
@@ -117,7 +117,7 @@ async def findings_stats(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings_async(scan_id)
     if not findings:
         return {
             "scan_id": scan_id,
@@ -194,7 +194,7 @@ async def executive_report(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings_async(scan_id)
     persona = get_persona(scan.persona_id) if scan.persona_id else None
 
     sev_counts = Counter(f.severity for f in findings)
@@ -326,8 +326,8 @@ async def compare_scans(
     if sa is None or sb is None:
         raise HTTPException(status_code=404, detail="One or both scans not found")
 
-    fa = scan_store.get_findings(scan_a)
-    fb = scan_store.get_findings(scan_b)
+    fa = await scan_store.get_findings_async(scan_a)
+    fb = await scan_store.get_findings_async(scan_b)
 
     def _summarize(scan, findings):
         sev = Counter(f.severity for f in findings)

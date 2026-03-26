@@ -17,13 +17,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import scans_router, findings_router, agents_router, personas_router
+from .store import scan_store
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: nothing blocking needed (manager is per-scan)
+    # Startup: create MongoDB indexes (no-op for in-memory store)
+    await scan_store.ensure_indexes()
+    mongo_ok = await scan_store.ping()
+    print(f"[startup] Store ping: {'OK' if mongo_ok else 'FAILED'}")
     yield
-    # Shutdown: nothing to clean up for the in-memory store
+    # Shutdown: close MongoDB client
+    scan_store.close()
 
 
 app = FastAPI(
@@ -56,4 +61,10 @@ app.include_router(personas_router, prefix="/api")
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"status": "ok", "service": "autodiligence"}
+    mongo_ok = await scan_store.ping()
+    return {
+        "status": "ok" if mongo_ok else "degraded",
+        "service": "autodiligence",
+        "store": "mongodb" if mongo_ok else "unknown",
+        "store_healthy": mongo_ok,
+    }
