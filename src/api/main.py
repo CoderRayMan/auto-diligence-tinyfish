@@ -7,6 +7,7 @@ Run with:
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -18,12 +19,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import scans_router, findings_router, agents_router, personas_router
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: nothing blocking needed (manager is per-scan)
+    from .store import scan_store
+    await scan_store.connect()   # raises RuntimeError if connection fails
     yield
-    # Shutdown: nothing to clean up for the in-memory store
+    await scan_store.disconnect()
 
 
 app = FastAPI(
@@ -33,7 +37,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow the Vite dev server and any same-origin production deploy
 _allowed_origins = os.getenv(
     "CORS_ORIGINS",
     "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174",
@@ -47,7 +50,6 @@ app.add_middleware(
     allow_headers=["Content-Type", "Accept"],
 )
 
-# Register routers under /api prefix
 app.include_router(scans_router, prefix="/api")
 app.include_router(findings_router, prefix="/api")
 app.include_router(agents_router, prefix="/api")
@@ -57,3 +59,4 @@ app.include_router(personas_router, prefix="/api")
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok", "service": "autodiligence"}
+

@@ -138,6 +138,9 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+
+# Local dev / network-workaround scripts — not for production
+scripts/
 .venv
 env/
 venv/

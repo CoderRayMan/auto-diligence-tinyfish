@@ -35,7 +35,7 @@ async def list_findings(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings: List[Finding] = scan_store.get_findings(scan_id)
+    findings: List[Finding] = await scan_store.get_findings(scan_id)
 
     # Apply filters
     if severity:
@@ -61,7 +61,7 @@ async def list_findings(
 @router.get("/{finding_id}", response_model=Finding)
 async def get_finding(finding_id: str, scan_id: str = Query(...)) -> Finding:
     """Get a single finding by ID."""
-    findings = scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings(scan_id)
     for f in findings:
         if f.finding_id == finding_id:
             return f
@@ -86,7 +86,7 @@ async def export_findings_csv(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings(scan_id)
 
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=_CSV_COLUMNS, extrasaction="ignore")
@@ -117,7 +117,7 @@ async def findings_stats(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings(scan_id)
     if not findings:
         return {
             "scan_id": scan_id,

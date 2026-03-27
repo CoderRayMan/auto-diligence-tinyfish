@@ -166,15 +166,15 @@ export default function Dashboard() {
       const data = await loadScans();
       if (cancelled || data.length === 0) return;
 
-      // Prefer scan_id from URL params
+      // Only auto-select if scan_id is in URL; otherwise show home grid
       const urlScanId = searchParams.get("scan_id");
-      const target =
-        (urlScanId && data.find((s) => s.scan_id === urlScanId)) || data[0];
-
-      if (target) {
-        await selectScan(target);
-        if (target.status === "running" || target.status === "pending") {
-          startLiveTracking(target);
+      if (urlScanId) {
+        const target = data.find((s) => s.scan_id === urlScanId);
+        if (target) {
+          await selectScan(target);
+          if (target.status === "running" || target.status === "pending") {
+            startLiveTracking(target);
+          }
         }
       }
     })();
@@ -227,6 +227,14 @@ export default function Dashboard() {
     }
   };
 
+  const handleBackToHome = () => {
+    setActiveScan(null);
+    setFindings([]);
+    setEvents([]);
+    if (sseCleanupRef.current) { sseCleanupRef.current(); sseCleanupRef.current = null; }
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
+
   const handleShareLink = () => {
     if (!activeScan) return;
     const url = `${window.location.origin}/?scan_id=${activeScan.scan_id}`;
@@ -252,6 +260,23 @@ export default function Dashboard() {
     } catch (e) {
       setError(String(e));
     }
+  };
+
+  // ---------------------------------------------------------------- helpers
+
+  const riskColor = (label: string | undefined) => {
+    switch ((label ?? "").toLowerCase()) {
+      case "critical": return "#f87171";
+      case "high":     return "#fb923c";
+      case "medium":   return "#fbbf24";
+      case "low":      return "#4ade80";
+      default:         return "#94a3b8";
+    }
+  };
+
+  const formatDate = (iso: string | undefined) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
   };
 
   // ---------------------------------------------------------------- empty state
@@ -288,8 +313,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Scan selector sidebar */}
-      {scans.length > 1 && (
+      {/* Scan selector sidebar — only visible when a scan is open */}
+      {activeScan && scans.length > 1 && (
         <aside className="scan-list">
           <div className="scan-list-header">Scans</div>
           {scans.map((s) => (
@@ -310,8 +335,118 @@ export default function Dashboard() {
       )}
 
       <div className="dashboard-content">
+        {/* ── Home grid: completed scans overview ─────────────────── */}
+        {!activeScan && !loadingScans && (
+          <div className="scans-home">
+            <div className="scans-home-header">
+              <div>
+                <h2 className="scans-home-title">Completed Scans</h2>
+                <p className="scans-home-sub">
+                  {scans.filter((s) => s.status === "completed").length} scan
+                  {scans.filter((s) => s.status === "completed").length !== 1 ? "s" : ""} completed
+                </p>
+              </div>
+              <button
+                className="primary-btn"
+                onClick={() => navigate("/new-scan")}
+                type="button"
+              >
+                ▶ New Scan
+              </button>
+            </div>
+
+            {scans.filter((s) => s.status === "completed").length === 0 ? (
+              <div className="scans-home-empty">
+                <div className="empty-icon">📋</div>
+                <p>No completed scans yet.</p>
+              </div>
+            ) : (
+              <div className="scan-cards-grid">
+                {scans
+                  .filter((s) => s.status === "completed")
+                  .map((s) => (
+                    <button
+                      key={s.scan_id}
+                      type="button"
+                      className="scan-card"
+                      onClick={() => handleScanSelect(s)}
+                    >
+                      <div className="scan-card-top">
+                        <span
+                          className="scan-card-risk-badge"
+                          style={{ borderColor: riskColor(s.risk_label), color: riskColor(s.risk_label) }}
+                        >
+                          {s.risk_label ?? "—"}
+                        </span>
+                        <span className="scan-card-score">
+                          {s.risk_score != null ? s.risk_score : "—"}
+                          <span className="scan-card-score-unit">/100</span>
+                        </span>
+                      </div>
+
+                      <div className="scan-card-target">{s.target}</div>
+                      <div className="scan-card-query">{s.query}</div>
+
+                      <div className="scan-card-meta">
+                        <span className="scan-card-findings">
+                          {s.findings_count ?? 0} finding{(s.findings_count ?? 0) !== 1 ? "s" : ""}
+                        </span>
+                        <span className="scan-card-date">{formatDate(s.created_at)}</span>
+                      </div>
+
+                      <div className="scan-card-footer">
+                        <span className="scan-card-sources">
+                          {s.sources_completed ?? 0}/{s.sources_total ?? 0} sources
+                        </span>
+                        <span className="scan-card-cta">View Details →</span>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            {/* Non-completed scans (running/pending/failed) */}
+            {scans.filter((s) => s.status !== "completed").length > 0 && (
+              <div className="scans-home-section">
+                <h3 className="scans-home-section-title">Active &amp; Other Scans</h3>
+                <div className="scan-cards-grid">
+                  {scans
+                    .filter((s) => s.status !== "completed")
+                    .map((s) => (
+                      <button
+                        key={s.scan_id}
+                        type="button"
+                        className="scan-card scan-card--active"
+                        onClick={() => handleScanSelect(s)}
+                      >
+                        <div className="scan-card-top">
+                          <span className={`status-dot status-dot--${s.status}`} />
+                          <span className="scan-card-status-label">{s.status}</span>
+                        </div>
+                        <div className="scan-card-target">{s.target}</div>
+                        <div className="scan-card-meta">
+                          <span className="scan-card-date">{formatDate(s.created_at)}</span>
+                        </div>
+                        <div className="scan-card-footer">
+                          <span className="scan-card-cta">Open →</span>
+                        </div>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeScan ? (
           <>
+            <div className="dashboard-breadcrumb">
+              <button type="button" className="breadcrumb-back" onClick={handleBackToHome}>
+                ← All Scans
+              </button>
+              <span className="breadcrumb-sep">/</span>
+              <span className="breadcrumb-current">{activeScan.target}</span>
+            </div>
             <ContextStrip scan={activeScan} />
 
             <div className="dashboard-body">
