@@ -240,6 +240,9 @@ class ScanStore:
     def get_event_history(self, scan_id: str) -> List[AgentEvent]:
         return list(self._event_history.get(scan_id, []))
 
+    async def get_event_history_async(self, scan_id: str) -> List[AgentEvent]:
+        return self.get_event_history(scan_id)
+
     async def close_event_queue(self, scan_id: str) -> None:
         q = self._event_queues.get(scan_id)
         if q is not None:
@@ -248,4 +251,3 @@ class ScanStore:
 
 # Application-wide singleton
 scan_store = ScanStore()
-

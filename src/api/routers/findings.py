@@ -194,7 +194,7 @@ async def executive_report(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings_async(scan_id)
     persona = get_persona(scan.persona_id) if scan.persona_id else None
 
     sev_counts = Counter(f.severity for f in findings)
@@ -326,8 +326,8 @@ async def compare_scans(
     if sa is None or sb is None:
         raise HTTPException(status_code=404, detail="One or both scans not found")
 
-    fa = scan_store.get_findings(scan_a)
-    fb = scan_store.get_findings(scan_b)
+    fa = await scan_store.get_findings_async(scan_a)
+    fb = await scan_store.get_findings_async(scan_b)
 
     def _summarize(scan, findings):
         sev = Counter(f.severity for f in findings)

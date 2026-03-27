@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import scans_router, findings_router, agents_router, personas_router
+from .store import scan_store
 
 logger = logging.getLogger(__name__)
 
@@ -59,4 +60,3 @@ app.include_router(personas_router, prefix="/api")
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok", "service": "autodiligence"}
-

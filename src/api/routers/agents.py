@@ -69,7 +69,7 @@ async def get_agent_events(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    history = scan_store.get_event_history(scan_id)
+    history = await scan_store.get_event_history_async(scan_id)
     return {
         "scan_id": scan_id,
         "events": [e.model_dump() for e in history],
