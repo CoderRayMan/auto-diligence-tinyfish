@@ -6,7 +6,7 @@ import type {
   Persona,
 } from "./types";
 
-const BASE = "/api";
+const BASE = (process.env.REACT_APP_API_URL ?? "").replace(/\/$/, "") + "/api";
 
 async function _json<T>(res: Response): Promise<T> {
   if (!res.ok) {

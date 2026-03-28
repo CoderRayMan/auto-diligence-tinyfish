@@ -243,6 +243,10 @@ class ScanStore:
     async def get_event_history_async(self, scan_id: str) -> List[AgentEvent]:
         return self.get_event_history(scan_id)
 
+    async def get_findings_async(self, scan_id: str) -> List[Finding]:
+        """Async alias for get_findings — for compatibility with routers expecting this method."""
+        return await self.get_findings(scan_id)
+
     async def close_event_queue(self, scan_id: str) -> None:
         q = self._event_queues.get(scan_id)
         if q is not None:
