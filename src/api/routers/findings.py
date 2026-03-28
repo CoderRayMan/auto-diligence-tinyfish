@@ -58,14 +58,53 @@ async def list_findings(
     )
 
 
-@router.get("/{finding_id}", response_model=Finding)
-async def get_finding(finding_id: str, scan_id: str = Query(...)) -> Finding:
-    """Get a single finding by ID."""
-    findings = await scan_store.get_findings(scan_id)
-    for f in findings:
-        if f.finding_id == finding_id:
-            return f
-    raise HTTPException(status_code=404, detail="Finding not found")
+@router.get("/compare")
+async def compare_scans(
+    scan_a: str = Query(..., description="First scan ID"),
+    scan_b: str = Query(..., description="Second scan ID"),
+) -> dict:
+    """
+    Compare findings from two scans.
+    Useful for before/after analysis or comparing two targets.
+    """
+    sa = await scan_store.get(scan_a)
+    sb = await scan_store.get(scan_b)
+    if sa is None or sb is None:
+        raise HTTPException(status_code=404, detail="One or both scans not found")
+
+    fa = await scan_store.get_findings_async(scan_a)
+    fb = await scan_store.get_findings_async(scan_b)
+
+    def _summarize(scan, findings):
+        sev = Counter(f.severity for f in findings)
+        return {
+            "scan_id": scan.scan_id,
+            "target": scan.target,
+            "risk_score": scan.risk_score,
+            "risk_label": scan.risk_label,
+            "total_findings": len(findings),
+            "total_exposure": sum(f.penalty_amount for f in findings),
+            "by_severity": dict(sev),
+            "sources_queried": scan.sources_total,
+        }
+
+    # Find case IDs that overlap
+    case_ids_a = {f.case_id for f in fa}
+    case_ids_b = {f.case_id for f in fb}
+    shared = case_ids_a & case_ids_b
+    only_a = case_ids_a - case_ids_b
+    only_b = case_ids_b - case_ids_a
+
+    return {
+        "scan_a": _summarize(sa, fa),
+        "scan_b": _summarize(sb, fb),
+        "shared_case_ids": len(shared),
+        "unique_to_a": len(only_a),
+        "unique_to_b": len(only_b),
+        "delta_risk": (sa.risk_score or 0) - (sb.risk_score or 0),
+        "delta_findings": len(fa) - len(fb),
+        "delta_exposure": sum(f.penalty_amount for f in fa) - sum(f.penalty_amount for f in fb),
+    }
 
 
 # ------------------------------------------------------------------ CSV export
@@ -86,7 +125,7 @@ async def export_findings_csv(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = await scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings_async(scan_id)
 
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=_CSV_COLUMNS, extrasaction="ignore")
@@ -117,7 +156,7 @@ async def findings_stats(
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    findings = await scan_store.get_findings(scan_id)
+    findings = await scan_store.get_findings_async(scan_id)
     if not findings:
         return {
             "scan_id": scan_id,
@@ -128,6 +167,9 @@ async def findings_stats(
             "by_status": {},
             "total_exposure": 0,
             "top_violations": [],
+            "top_penalties": [],
+            "risk_score": scan.risk_score,
+            "risk_label": scan.risk_label,
         }
 
     sev_counts = Counter(f.severity for f in findings)
@@ -310,52 +352,13 @@ async def executive_report(
     }
 
 
-# ----------------------------------------------------------- scan comparison
+# ----------------------------------------- single finding by ID (must stay last)
 
-@router.get("/compare")
-async def compare_scans(
-    scan_a: str = Query(..., description="First scan ID"),
-    scan_b: str = Query(..., description="Second scan ID"),
-) -> dict:
-    """
-    Compare findings from two scans.
-    Useful for before/after analysis or comparing two targets.
-    """
-    sa = await scan_store.get(scan_a)
-    sb = await scan_store.get(scan_b)
-    if sa is None or sb is None:
-        raise HTTPException(status_code=404, detail="One or both scans not found")
-
-    fa = await scan_store.get_findings_async(scan_a)
-    fb = await scan_store.get_findings_async(scan_b)
-
-    def _summarize(scan, findings):
-        sev = Counter(f.severity for f in findings)
-        return {
-            "scan_id": scan.scan_id,
-            "target": scan.target,
-            "risk_score": scan.risk_score,
-            "risk_label": scan.risk_label,
-            "total_findings": len(findings),
-            "total_exposure": sum(f.penalty_amount for f in findings),
-            "by_severity": dict(sev),
-            "sources_queried": scan.sources_total,
-        }
-
-    # Find case IDs that overlap
-    case_ids_a = {f.case_id for f in fa}
-    case_ids_b = {f.case_id for f in fb}
-    shared = case_ids_a & case_ids_b
-    only_a = case_ids_a - case_ids_b
-    only_b = case_ids_b - case_ids_a
-
-    return {
-        "scan_a": _summarize(sa, fa),
-        "scan_b": _summarize(sb, fb),
-        "shared_case_ids": len(shared),
-        "unique_to_a": len(only_a),
-        "unique_to_b": len(only_b),
-        "delta_risk": (sa.risk_score or 0) - (sb.risk_score or 0),
-        "delta_findings": len(fa) - len(fb),
-        "delta_exposure": sum(f.penalty_amount for f in fa) - sum(f.penalty_amount for f in fb),
-    }
+@router.get("/{finding_id}", response_model=Finding)
+async def get_finding(finding_id: str, scan_id: str = Query(...)) -> Finding:
+    """Get a single finding by ID."""
+    findings = await scan_store.get_findings_async(scan_id)
+    for f in findings:
+        if f.finding_id == finding_id:
+            return f
+    raise HTTPException(status_code=404, detail="Finding not found")
