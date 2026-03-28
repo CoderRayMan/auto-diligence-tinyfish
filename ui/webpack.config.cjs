@@ -1,5 +1,7 @@
 const path = require("path");
+const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const Dotenv = require("dotenv-webpack");
 
 module.exports = (env, argv) => {
   const isDev = argv.mode !== "production";
@@ -42,6 +44,7 @@ module.exports = (env, argv) => {
         template: "./index.html",
         inject: "body",
       }),
+      new Dotenv({ path: "./.env", safe: false, silent: true, systemvars: true }),
     ],
     devServer: {
       port: 5174,
