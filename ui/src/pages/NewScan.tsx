@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChevronDown, ChevronRight, Zap, Rocket } from "lucide-react";
 import type { Persona, ScanRequest } from "../api/types";
 import { createScan, listPersonas } from "../api/client";
 import "./NewScan.css";
@@ -116,12 +117,33 @@ export default function NewScan() {
   };
 
   // ── Render
+  // Step completion state
+  const step1Done = selectedPersona !== null;
+  const step2Done = form.target.trim().length >= 2;
+  const activeStep = !step1Done ? 1 : !step2Done ? 2 : 3;
+
   return (
     <main className="new-scan-page">
       <div className="new-scan-card">
         <header className="new-scan-header">
           <h2>New Diligence Scan</h2>
           <p>Choose a role, pick a target, and launch a multi-agent regulatory sweep.</p>
+          <div className="step-progress" aria-label="Setup progress">
+            {[
+              { n: 1, label: "Choose Role" },
+              { n: 2, label: "Target Entity" },
+              { n: 3, label: "Sources & Launch" },
+            ].map(({ n, label }) => (
+              <div
+                key={n}
+                className={`step-item ${activeStep === n ? "step-item--active" : ""} ${activeStep > n ? "step-item--done" : ""}`}
+              >
+                <div className="step-circle">{activeStep > n ? "✓" : n}</div>
+                <span className="step-label">{label}</span>
+                {n < 3 && <div className="step-line" />}
+              </div>
+            ))}
+          </div>
         </header>
 
         {/* ── Step 1: Persona selector */}
@@ -200,7 +222,8 @@ export default function NewScan() {
             className="advanced-toggle"
             onClick={() => setShowAdvanced(!showAdvanced)}
           >
-            {showAdvanced ? "▾ Hide" : "▸ Show"} advanced settings
+            {showAdvanced ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            {showAdvanced ? "Hide" : "Show"} advanced settings
           </button>
 
           {showAdvanced && (
@@ -283,7 +306,7 @@ export default function NewScan() {
           {/* Summary strip */}
           {form.target.trim() && (
             <div className="scan-summary">
-              <div className="summary-icon">⚡</div>
+              <div className="summary-icon"><Zap size={16} /></div>
               <div className="summary-text">
                 <strong>Ready:</strong> Research{" "}
                 <em>{form.target.trim()}</em> across{" "}
@@ -328,7 +351,7 @@ export default function NewScan() {
                 </>
               ) : (
                 <>
-                  <span className="icon">▶</span> Start Scan
+                  <Rocket size={14} /> Start Scan
                 </>
               )}
             </button>

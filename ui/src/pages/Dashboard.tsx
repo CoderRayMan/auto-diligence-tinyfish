@@ -1,5 +1,27 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Plus,
+  RefreshCw,
+  FileText,
+  Bookmark,
+  Link2,
+  X,
+  ChevronLeft,
+  ClipboardList,
+  Bot,
+  SearchIcon,
+  Zap,
+  Download,
+  BarChart2,
+  List,
+  GitBranch,
+  AlertTriangle,
+  TrendingUp,
+  Building2,
+  Activity,
+  ShieldAlert,
+} from "lucide-react";
 import type { AgentEvent, Finding, RiskTrendPoint, Scan } from "../api/types";
 import {
   cancelScan,
@@ -372,7 +394,7 @@ export default function Dashboard() {
     return (
       <main className="dashboard dashboard--empty">
         <div className="empty-state">
-          <div className="empty-icon">⚡</div>
+          <div className="empty-icon"><Zap size={26} /></div>
           <h2>No scans yet</h2>
           <p>Run your first regulatory diligence scan to get started.</p>
           <button
@@ -380,7 +402,7 @@ export default function Dashboard() {
             onClick={() => navigate("/new-scan")}
             type="button"
           >
-            ▶ Run New Scan
+            <Plus size={15} /> New Scan
           </button>
         </div>
       </main>
@@ -393,9 +415,9 @@ export default function Dashboard() {
     <main className="dashboard">
       {error && (
         <div className="error-banner" role="alert">
-          {error}{" "}
-          <button onClick={() => setError(null)} type="button">
-            ✕
+          <AlertTriangle size={14} />{error}{" "}
+          <button onClick={() => setError(null)} type="button" aria-label="Dismiss">
+            <X size={13} />
           </button>
         </div>
       )}
@@ -440,10 +462,60 @@ export default function Dashboard() {
                   onClick={() => navigate("/new-scan")}
                   type="button"
                 >
-                  ▶ New Scan
+                  <Plus size={14} /> New Scan
                 </button>
               </div>
             </div>
+
+            {/* ── KPI stats row ─────────────────────────────────── */}
+            {homeTab === "scans" && scans.length > 0 && (() => {
+              const completed = scans.filter(s => s.status === "completed");
+              const running = scans.filter(s => s.status === "running" || s.status === "pending");
+              const critical = completed.filter(s => (s.risk_label ?? "").toLowerCase() === "critical").length;
+              const entities = new Set(completed.map(s => s.target)).size;
+              const totalFindings = completed.reduce((sum, s) => sum + (s.findings_count ?? 0), 0);
+              return (
+                <div className="kpi-row">
+                  <div className="kpi-card">
+                    <div className="kpi-icon kpi-icon--accent"><Building2 size={16} /></div>
+                    <div className="kpi-body">
+                      <div className="kpi-value">{entities}</div>
+                      <div className="kpi-label">Entities Monitored</div>
+                    </div>
+                  </div>
+                  <div className="kpi-card">
+                    <div className="kpi-icon kpi-icon--success"><ClipboardList size={16} /></div>
+                    <div className="kpi-body">
+                      <div className="kpi-value">{completed.length}</div>
+                      <div className="kpi-label">Completed Scans</div>
+                    </div>
+                  </div>
+                  <div className={`kpi-card${critical > 0 ? " kpi-card--danger" : ""}`}>
+                    <div className={`kpi-icon${critical > 0 ? " kpi-icon--danger" : " kpi-icon--muted"}`}><ShieldAlert size={16} /></div>
+                    <div className="kpi-body">
+                      <div className="kpi-value">{critical}</div>
+                      <div className="kpi-label">Critical Risk</div>
+                    </div>
+                  </div>
+                  <div className="kpi-card">
+                    <div className="kpi-icon kpi-icon--warning"><TrendingUp size={16} /></div>
+                    <div className="kpi-body">
+                      <div className="kpi-value">{totalFindings}</div>
+                      <div className="kpi-label">Total Findings</div>
+                    </div>
+                  </div>
+                  {running.length > 0 && (
+                    <div className="kpi-card kpi-card--running">
+                      <div className="kpi-icon kpi-icon--running"><Activity size={16} /></div>
+                      <div className="kpi-body">
+                        <div className="kpi-value">{running.length}</div>
+                        <div className="kpi-label">Running Now</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Home tabs */}
             <div className="home-tabs">
@@ -451,19 +523,19 @@ export default function Dashboard() {
                 className={`home-tab ${homeTab === "scans" ? "home-tab--active" : ""}`}
                 onClick={() => setHomeTab("scans")}
               >
-                📋 Scans
+                <ClipboardList size={14} /> Scans
               </button>
               <button
                 className={`home-tab ${homeTab === "digest" ? "home-tab--active" : ""}`}
                 onClick={() => setHomeTab("digest")}
               >
-                🤖 AI Briefings
+                <Bot size={14} /> AI Briefings
               </button>
               <button
                 className={`home-tab ${homeTab === "runs" ? "home-tab--active" : ""}`}
                 onClick={() => setHomeTab("runs")}
               >
-                🔍 Run Audit
+                <SearchIcon size={14} /> Run Audit
               </button>
             </div>
 
@@ -472,20 +544,22 @@ export default function Dashboard() {
               <>
             {scans.filter((s) => s.status === "completed").length === 0 ? (
               <div className="scans-home-empty">
-                <div className="empty-icon">📋</div>
+                <div className="empty-icon"><ClipboardList size={22} /></div>
                 <p>No completed scans yet.</p>
               </div>
             ) : (
               <div className="scan-cards-grid">
                 {scans
                   .filter((s) => s.status === "completed")
-                  .map((s) => (
+                  .map((s, idx) => (
                     <button
                       key={s.scan_id}
                       type="button"
-                      className="scan-card"
+                      className={`scan-card scan-card--risk-${(s.risk_label ?? "none").toLowerCase()} animate-up`}
+                      style={{ animationDelay: `${idx * 45}ms` }}
                       onClick={() => handleScanSelect(s)}
                     >
+                      <div className="scan-card-risk-bar" style={{ background: riskColor(s.risk_label) }} />
                       <div className="scan-card-top">
                         <span
                           className="scan-card-risk-badge"
@@ -493,7 +567,7 @@ export default function Dashboard() {
                         >
                           {s.risk_label ?? "—"}
                         </span>
-                        <span className="scan-card-score">
+                        <span className="scan-card-score" style={{ color: riskColor(s.risk_label) }}>
                           {s.risk_score != null ? s.risk_score : "—"}
                           <span className="scan-card-score-unit">/100</span>
                         </span>
@@ -508,6 +582,20 @@ export default function Dashboard() {
                         </span>
                         <span className="scan-card-date">{formatDate(s.created_at)}</span>
                       </div>
+
+                      {s.source_results && s.source_results.length > 0 && (
+                        <div className="scan-card-source-chips">
+                          {s.source_results.map((sr) => (
+                            <span
+                              key={sr.source_id}
+                              className={`source-mini-chip source-mini-chip--${sr.status}`}
+                              title={`${sr.source_id.toUpperCase()}: ${sr.records_found} records`}
+                            >
+                              {sr.source_id.replace("us_", "").toUpperCase()}
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
                       <div className="scan-card-footer">
                         <span className="scan-card-sources">
@@ -582,7 +670,7 @@ export default function Dashboard() {
           <>
             <div className="dashboard-breadcrumb">
               <button type="button" className="breadcrumb-back" onClick={handleBackToHome}>
-                ← All Scans
+                <ChevronLeft size={13} /> All Scans
               </button>
               <span className="breadcrumb-sep">/</span>
               <span className="breadcrumb-current">{activeScan.target}</span>
@@ -613,7 +701,7 @@ export default function Dashboard() {
                         onClick={handleCancelScan}
                         type="button"
                       >
-                        ✕ Cancel Scan
+                        <X size={13} /> Cancel Scan
                       </button>
                     </>
                   )}
@@ -626,7 +714,7 @@ export default function Dashboard() {
                         type="button"
                         title="Re-run this scan [R]"
                       >
-                        🔄 Re-run
+                        <RefreshCw size={13} /> Re-run
                       </button>
                       <button
                         className="action-btn action-btn--report"
@@ -634,7 +722,7 @@ export default function Dashboard() {
                         type="button"
                         title="Executive report [P]"
                       >
-                        📋 Report
+                        <FileText size={13} /> Report
                       </button>
                       <button
                         className="action-btn action-btn--watchlist"
@@ -642,7 +730,7 @@ export default function Dashboard() {
                         type="button"
                         title="Pin to watchlist"
                       >
-                        � Watch
+                        <Bookmark size={13} /> Watch
                       </button>
                     </>
                   )}
@@ -653,7 +741,7 @@ export default function Dashboard() {
                     type="button"
                     title="Copy shareable link"
                   >
-                    {copied ? "✓ Copied!" : "🔗 Share"}
+                    <Link2 size={13} /> {copied ? "Copied!" : "Share"}
                   </button>
                 </div>
               </div>
@@ -674,14 +762,14 @@ export default function Dashboard() {
                     onClick={() => setViewMode("table")}
                     type="button"
                   >
-                    Table
+                    <List size={13} /> Table
                   </button>
                   <button
                     className={`view-toggle-btn ${viewMode === "timeline" ? "view-toggle-btn--active" : ""}`}
                     onClick={() => setViewMode("timeline")}
                     type="button"
                   >
-                    Timeline
+                    <GitBranch size={13} /> Timeline
                   </button>
                 </div>
 
@@ -718,8 +806,9 @@ export default function Dashboard() {
                       className="drawer-close"
                       onClick={() => setShowReport(false)}
                       type="button"
+                      aria-label="Close"
                     >
-                      ✕
+                      <X size={16} />
                     </button>
                   </div>
                   <p className="report-subtitle">{reportData.subtitle as string}</p>
