@@ -110,15 +110,15 @@ def run_agent(
 
             if event.type == EventType.STARTED:
                 if verbose:
-                    print(f"[▶ STARTED]  run_id={event.run_id}")
+                    print(f"[STARTED] run_id={event.run_id}")
 
             elif event.type == EventType.STREAMING_URL:
                 if verbose:
-                    print(f"[🔴 LIVE]    Browser stream: {event.streaming_url}")
+                    print(f"[LIVE]    Browser stream: {event.streaming_url}")
 
             elif event.type == EventType.PROGRESS:
                 if verbose:
-                    print(f"[→ STEP]     {event.purpose}")
+                    print(f"[STEP]    {event.purpose}")
 
             elif event.type == EventType.HEARTBEAT:
                 # Keepalive ping from the server — no action needed
@@ -128,12 +128,12 @@ def run_agent(
                 if event.status == RunStatus.COMPLETED:
                     result = event.result_json  # Dict[str, Any] | None
                     if verbose:
-                        print(f"\n[✓ COMPLETE] status={event.status}")
+                        print(f"\n[COMPLETE] status={event.status}")
                         print(f"Result:\n{json.dumps(result, indent=2)}")
                 else:
                     err = event.error.message if event.error else f"status={event.status}"
                     if verbose:
-                        print(f"\n[✗ FAILED]  {err}")
+                        print(f"\n[FAILED] {err}")
                     logger.error(f"TinyFish run failed: {err}")
 
     return result

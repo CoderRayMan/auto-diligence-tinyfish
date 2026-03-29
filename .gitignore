@@ -5,6 +5,7 @@ __pycache__/
 ui/package-lock.json
 # C extensions
 *.so
+.github/
 
 # Distribution / packaging
 .Python
@@ -32,7 +33,7 @@ MANIFEST
 *.manifest
 *.spec
 *.ps1
-
+/.vscode
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -138,6 +139,9 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+
+# Local dev / network-workaround scripts — not for production
+scripts/
 .venv
 env/
 venv/

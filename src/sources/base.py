@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from tinyfish import (
     TinyFish,
     BrowserProfile,
+    ProxyConfig,
     CompleteEvent,
     EventType,
     ProgressEvent,
@@ -21,6 +22,7 @@ from tinyfish import (
     StreamingUrlEvent,
 )
 from tinyfish.runs.types import RunStatus
+from tinyfish.agent.types import ProxyCountryCode
 
 
 @dataclass
@@ -55,11 +57,14 @@ class BaseAgent(ABC):
         source: SourceConfig,
         token_vault: Any = None,
         event_callback: Optional[Callable[[str, str, str, Optional[str]], None]] = None,
+        proxy_country_code: Optional[str] = None,
     ):
         self.source = source
         self.token_vault = token_vault
         # Called with (source_id, tag, message, streaming_url|None)
         self._event_callback = event_callback
+        # Optional geo-targeted proxy (e.g. "GB" routes through UK)
+        self._proxy_country_code = proxy_country_code
         self.client = TinyFish()  # reads TINYFISH_API_KEY from env
         self.logger = logging.getLogger(f"agent.{source.id}")
 
@@ -102,13 +107,29 @@ class BaseAgent(ABC):
             try:
                 self._emit("RUNNING", f"Starting TinyFish agent (attempt {attempt + 1})")
 
+                run_id: Optional[str] = None
+
+                # Build optional geo-targeted proxy config
+                proxy_config = None
+                if self._proxy_country_code:
+                    try:
+                        proxy_config = ProxyConfig(
+                            enabled=True,
+                            country_code=ProxyCountryCode(self._proxy_country_code.upper()),
+                        )
+                        self._emit("RUNNING", f"Geo-proxy: {self._proxy_country_code.upper()}")
+                    except ValueError:
+                        self._emit("RUNNING", f"Unknown proxy country '{self._proxy_country_code}' — skipping proxy")
+
                 with self.client.agent.stream(
                     url=self.source.base_url,
                     goal=goal,
                     browser_profile=self._get_browser_profile(),
+                    proxy_config=proxy_config,
                 ) as stream:
                     for event in stream:
                         if event.type == EventType.STARTED:
+                            run_id = event.run_id
                             self._emit("RUNNING", f"Run started — id={event.run_id}")
 
                         elif event.type == EventType.STREAMING_URL:
@@ -128,8 +149,26 @@ class BaseAgent(ABC):
 
                         elif event.type == EventType.COMPLETE:
                             if event.status == RunStatus.COMPLETED:
+                                result_data = event.result_json
+
+                                # The streaming CompleteEvent sometimes delivers
+                                # result_json=None even when the run produced data.
+                                # Fall back to the REST runs API to fetch the result.
+                                if result_data is None and run_id:
+                                    self._emit("RUNNING", "result_json absent in stream — fetching via runs API")
+                                    try:
+                                        run_record = self.client.runs.get(run_id)
+                                        result_data = run_record.result
+                                    except Exception as fetch_exc:
+                                        self._emit("RUNNING", f"runs.get fallback failed: {fetch_exc}")
+
+                                if result_data is None:
+                                    self._emit("RUNNING", "TinyFish result_json is None — no data returned")
+                                else:
+                                    top_keys = list(result_data.keys()) if isinstance(result_data, dict) else type(result_data).__name__
+                                    self._emit("RUNNING", f"TinyFish result keys: {top_keys}")
                                 self._emit("COMPLETED", "Agent run completed successfully")
-                                return event.result_json  # Dict[str, Any] | None
+                                return result_data  # Dict[str, Any] | None
                             else:
                                 err_msg = (
                                     event.error.message

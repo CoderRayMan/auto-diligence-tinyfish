@@ -158,7 +158,10 @@ class DiligenceManager:
                 result = await self._execute_single_task(task, event_callback)
                 results[task.source_id] = result
                 if callback:
-                    callback(result)
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(result)
+                    else:
+                        callback(result)
                 return result
         
         # Execute all tasks

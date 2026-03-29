@@ -8,6 +8,7 @@ and open/closed status.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 
@@ -55,6 +56,27 @@ def _parse_penalty(raw: Any) -> float:
         return float(s) * multiplier
     except ValueError:
         return 0.0
+
+
+_PENALTY_PATTERNS = [
+    # "$20 million", "$1.5 billion"
+    (re.compile(r'\$(\d[\d,]*(?:\.\d+)?)\s*billion', re.IGNORECASE), 1e9),
+    (re.compile(r'\$(\d[\d,]*(?:\.\d+)?)\s*million', re.IGNORECASE), 1e6),
+    # "20 million penalty/fine/settlement"
+    (re.compile(r'(\d[\d,]*(?:\.\d+)?)\s*million\s+(?:penalty|fine|settlement|disgorgement)', re.IGNORECASE), 1e6),
+    # "$20,000,000" raw dollar amount (at least 4 digits)
+    (re.compile(r'\$(\d[\d,]{3,})', re.IGNORECASE), 1.0),
+]
+
+
+def _extract_penalty_from_text(text: str) -> float:
+    """Try to extract a dollar penalty amount from free text (description, title)."""
+    for pattern, mult in _PENALTY_PATTERNS:
+        m = pattern.search(text)
+        if m:
+            val = float(m.group(1).replace(',', ''))
+            return val * mult
+    return 0.0
 
 
 @dataclass
@@ -114,6 +136,10 @@ class ResultAggregator:
                 continue
 
             penalty = _parse_penalty(case.get("proposed_penalty") or case.get("penalty_amount"))
+            # Fallback: try to extract amount from description when agent returned 0
+            if not penalty:
+                description_text = str(case.get("description") or "")
+                penalty = _extract_penalty_from_text(description_text)
             violation_type = case.get("violation_type") or case.get("case_type") or "unknown"
             status = (case.get("status") or "unknown").lower()
             severity = _classify_severity(violation_type, penalty, status)

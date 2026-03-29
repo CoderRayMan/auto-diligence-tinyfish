@@ -1,349 +1,309 @@
-# AutoDiligence - Multi-Agent Regulatory Research Engine
+<div align="center">
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-check.svg" width="80" height="80" alt="AutoDiligence Icon">
 
-**Project for:** TinyFish Accelerator  
-**Tech Stack:** Python + TinyFish Web Agent API  
-**Architecture:** Stateful Multi-Agent Orchestration
+  # AutoDiligence
 
----
+  **Multi-agent regulatory research engine powered by TinyFish browser agents.**
 
-## 🎯 Executive Summary
-
-AutoDiligence is a sophisticated multi-agent system that automates regulatory research across government and court portals. It leverages TinyFish Web Agent's capabilities to navigate complex authentication systems, extract structured data, and maintain stateful sessions for production-scale research operations.
-
----
-
-## 🏗️ System Architecture
-
-### 1. Control Plane - Stateful Multi-Agent Orchestration
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     USER REQUEST                             │
-│   "Research FDA violations for Company X"                    │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│               DILIGENCE MANAGER                              │
-│  • Decomposes request into specific search tasks            │
-│  • Maintains orchestration state                            │
-│  • Coordinates agent lifecycle                              │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                AGENT FACTORY                                 │
-│  • Spawns specialized Site Agents concurrently              │
-│  • Assigns evasion profiles                                 │
-│  • Manages resource allocation                                │
-└──────────┬───────────┬───────────┬───────────┬────────────┘
-           │           │           │           │
-           ▼           ▼           ▼           ▼
-     ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-     │ OSHA    │ │ FDA     │ │ SEC     │ │ Court   │
-     │ Agent   │ │ Agent   │ │ Agent   │ │ Agent   │
-     └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
-          │           │           │           │
-          └───────────┴───────────┴───────────┘
-                        │
-                        ▼
-          ┌─────────────────────────────┐
-          │    STATEFUL TOKEN VAULT     │
-          │   (Redis / In-Memory Cache) │
-          │                             │
-          │  • playwright.cookies         │
-          │  • session tokens             │
-          │  • expiry management          │
-          │  • refresh logic              │
-          └─────────────────────────────┘
-```
-
-### 2. Core Components
-
-| Component | Purpose | Technology |
-|-----------|---------|------------|
-| DiligenceManager | Orchestrates the entire workflow | Python asyncio |
-| AgentFactory | Spawns and manages Site Agents | Python ThreadPool |
-| Site Agents | Specialized agents per site | TinyFish API |
-| Token Vault | Shared session state | Redis / In-Memory |
-| Source Registry | Configuration for each data source | YAML/JSON |
+  [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg?logo=python&logoColor=white)](#)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-009688.svg?logo=fastapi&logoColor=white)](#)
+  [![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=white)](#)
+  [![TinyFish](https://img.shields.io/badge/Powered_by-TinyFish-FF6B6B.svg?logo=ai&logoColor=white)](#)
+  
+  <h3>
+    <a href="https://auto-diligence-tinyfish.vercel.app/">
+      🚀 View Live Demonstration
+    </a>
+  </h3>
+</div>
 
 ---
 
-## 🔑 Key Features
+AutoDiligence is a regulatory due-diligence application that uses **TinyFish-powered browser agents** to research companies across multiple public enforcement and compliance sources. It combines concurrent scan orchestration, live agent telemetry, risk scoring, analytics, watchlist monitoring, and AI-generated briefings into a single FastAPI + React application.
 
-### 1. Stateful Multi-Agent Orchestration
+## 🎯 Overview
 
-The Manager-Worker pattern enables:
-- **Intelligent Task Decomposition** - Single request → multiple specific search tasks
-- **Concurrent Execution** - Dozens of Site Agents run in parallel
-- **Scalability** - Add new regulatory sources via config, not code
-- **Resilience** - Failed agents retry with exponential backoff
+Given a target company and a specialized "persona", AutoDiligence can:
 
-### 2. Stateful Token Vault (Critical Innovation)
-
-**The Problem:**
-- Government portals force repeated logins
-- Session tokens expire quickly
-- Standard bots fail on authentication
-
-**The Solution:**
-```python
-# Agent A logs in and saves cookies
-token_vault.save("osha.gov", {
-    "cookies": playwright_cookies,
-    "timestamp": datetime.now(),
-    "expiry": datetime.now() + timedelta(minutes=30)
-})
-
-# Agent B (10 min later) loads valid cookies
-cookies = token_vault.get("osha.gov")
-if cookies and not cookies.is_expired():
-    agent.load_session(cookies)
-    # Skip login, go straight to search
-```
-
-**Benefits:**
-- ⚡ Production-speed reliability
-- 💰 Reduced API roundtrips
-- 🔄 Automatic token refresh
-- 🔒 Secure credential isolation
-
-### 3. Deep-Web Agentic Flow
-
-**Natural Language Element Location:**
-```python
-# Instead of brittle CSS selectors
-element = await page.get_by_prompt("the search button in the modal")
-
-# Dynamic content handling
-await page.wait_for_prompt("the loading spinner disappears")
-```
-
-**Intelligent Wait States:**
-- Automatically handles pop-ups
-- Manages dynamic loading overlays
-- Adapts to layout shifts
-- Survives "messiness of the web"
-
-### 4. Specialized Evasion Profiles
-
-**Per-Site Configuration:**
-```yaml
-osha.gov:
-  profile: stealth
-  proxy: residential
-  rate_limit: 5_requests/minute
-  headers:
-    User-Agent: "Mozilla/5.0..."
-    
-sec.gov:
-  profile: standard
-  proxy: datacenter
-  rate_limit: 10_requests/minute
-```
-
-**Evasion Techniques:**
-- **Stealth Mode** - TinyFish anti-detection browser
-- **Residential Proxies** - Tetra Proxies for IP rotation
-- **Human-like Delays** - Randomized timing between actions
-- **Fingerprint Randomization** - Per-session browser signatures
+- 🎏 **Fan out research** across multiple regulatory sources concurrently.
+- 📺 **Stream live agent activity** and browser sessions directly back to the UI.
+- 🗃️ **Normalize findings** into a single, unified data model.
+- 🧮 **Compute an aggregated risk score** in a portfolio-style view.
+- 💾 **Persist completed scans** and findings into MongoDB.
+- 🤖 **Generate AI briefings** seamlessly from queued TinyFish runs.
 
 ---
 
-## 📁 Project Structure
+## 🐟 Why TinyFish?
 
-```
-autodiligence/
-├── README.md
-├── requirements.txt
-├── config/
-│   ├── sources.yaml          # Regulatory site configurations
-│   └── evasion_profiles.yaml # Anti-detection settings
-├── src/
-│   ├── __init__.py
-│   ├── manager.py            # DiligenceManager
-│   ├── agent_factory.py      # AgentFactory
-│   ├── site_agent.py         # Base SiteAgent class
-│   ├── token_vault.py        # Stateful Token Vault
-│   ├── sources/
-│   │   ├── __init__.py
-│   │   ├── osha_agent.py     # OSHA-specific agent
-│   │   ├── fda_agent.py      # FDA-specific agent
-│   │   ├── sec_agent.py      # SEC-specific agent
-│   │   └── base.py           # Abstract base agent
-│   └── utils/
-│       ├── __init__.py
-│       ├── prompts.py        # Reusable TinyFish prompts
-│       └── validators.py     # Data validation
-├── tests/
-│   ├── test_manager.py
-│   ├── test_token_vault.py
-│   └── test_agents.py
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── API.md
-│   └── DEPLOYMENT.md
-└── examples/
-    ├── basic_search.py
-    ├── multi_source.py
-    └── custom_agent.py
-```
+TinyFish is the execution layer behind the product, not just an integration point. 
+
+> *Cloud-hosted browser execution removes the need to operate local browsers or scraping infrastructure.*
+
+- **Browser-first Navigation:** Source agents use TinyFish browser runs to navigate complex regulatory sites that do not expose clean APIs.
+- **Real-time Telemetry:** Live scan progress and actual browser session URLs flow directly from TinyFish into the dashboard through Server-Sent Events (SSE).
+- **Run Audit & Observability:** The Run Audit panel provides a direct operational view of TinyFish run history, status, timing, and raw outputs.
+- **Asynchronous Briefings:** AI Briefings rely on queued TinyFish runs and intelligent polling, ensuring long-running research completes reliably without blocking the UI.
 
 ---
 
-## 🚀 Quick Start
+## ⭐ Feature Highlights
 
-### Installation
+- **⚡ TinyFish-First Execution:** Concurrent browser research, live run telemetry, and queued AI briefings powered natively by TinyFish.
+- **🎭 Persona-Based Scans:** Preconfigured profiles built with distinct sources, default queries, and demo targets.
+- **🏎️ Concurrent Execution:** Rapid parallel scan execution orchestrated via `DiligenceManager` and our source-specific agents.
+- **📊 Interactive Findings:** Deep exploration powered by a robust findings table, timeline view, data exports, and executive-report formats.
+- **📈 Advanced Analytics:** Risk scoring, portfolio overview, industry benchmarks, and trend analysis views.
+- **👁️ Watchlist & Scheduling:** Proactive watchlist management with stale-entry detection and a background worker that auto-queues rescans for outdated entities.
+
+---
+
+## 💻 Tech Stack
+
+<table>
+  <tr>
+    <td width="50%">
+      <b>Backend</b><br>
+      • Python 3.11+<br>
+      • FastAPI<br>
+      • TinyFish SDK<br>
+      • asyncio & Pydantic v2<br>
+      • MongoDB (via <code>pymongo</code> / <code>motor</code>)<br>
+      • SSE (via <code>sse-starlette</code>)
+    </td>
+    <td width="50%">
+      <b>Frontend</b><br>
+      • React 18<br>
+      • TypeScript<br>
+      • React Router<br>
+      • Webpack Dev Server<br>
+      • Lucide React Icons
+    </td>
+  </tr>
+</table>
+
+### Configuration and Support
+- **YAML** config for regulatory sources and anti-bot evasion profiles.
+- **`python-dotenv`** for easy environment bootstrapping.
+- **Token Vault** with optional Redis-backed shared session caching.
+
+---
+
+## 🏛️ Architecture
+
+```mermaid
+flowchart TD
+    User[Analyst or Research Team] --> UI[React UI<br/>Vercel or localhost:5174]
+    UI -->|REST + SSE| API[FastAPI API<br/>localhost:8000]
+
+    subgraph App[Application Layer]
+        API --> Routes[Scans • Findings • Analytics • Watchlist • Runs • Digest]
+        Routes --> Manager[DiligenceManager]
+        Manager --> Factory[AgentFactory]
+        Routes --> Mongo[(MongoDB)]
+        Routes --> Scheduler[Background Scheduler]
+    end
+
+    subgraph Research[Research Execution Layer]
+        Factory --> Agents[Source Agents<br/>OSHA • FDA • SEC • DOL • EPA]
+        Agents --> TinyFish[TinyFish Cloud Browser Runs<br/>and Queued Briefing Jobs]
+        TinyFish --> Sites[Regulatory Websites]
+    end
+
+    Agents --> SSE[In-memory SSE Queues]
+    SSE --> UI
+    Routes --> Audit[Run Audit and AI Briefings]
+    Audit --> TinyFish
+```
+
+### Architecture Notes
+
+- The React UI talks to FastAPI over standard REST endpoints plus SSE for live agent activity.
+- TinyFish is the execution backbone for both browser-based source research and queued AI briefing jobs.
+- MongoDB persists scans and findings, while live SSE event queues remain in memory for active sessions.
+
+### Backend Flow
+
+1. **Initiate:** `POST /api/scans` creates a pending scan and stores it in the database.
+2. **Dispatch:** A background task hands the scan to the `DiligenceManager`.
+3. **Fan-out:** The manager distributes work concurrently across the selected regulatory sources.
+4. **Execution:** Source agents call TinyFish API and emit live events back into the in-memory SSE queue.
+5. **Persistence:** Findings are normalized, scored, and reliably persisted to MongoDB.
+6. **Consumption:** The React UI tracks scan status, findings, analytics, run history, and digest results via REST & SSE.
+
+---
+
+## 🏛️ Current Source Coverage
+
+Configured regulatory sources located in [`config/sources.yaml`](config/sources.yaml):
+
+- 👷 **`us_osha`** — OSHA enforcement records
+- 💊 **`us_fda`** — FDA warning letters and enforcement
+- 📈 **`us_sec`** — SEC enforcement actions
+- ⚖️ **`us_dol`** — Department of Labor wage and hour violations
+- 🌿 **`us_epa`** — EPA enforcement and compliance
+
+---
+
+## 🎭 Personas & Use Cases
+
+The app ships with six built-in personas available in [`src/api/schemas/persona.py`](src/api/schemas/persona.py):
+
+| Persona | Default Sources | Primary Use Case |
+| :--- | :--- | :--- |
+| **Compliance Officer** | OSHA, FDA, SEC, DOL, EPA | Board-level risk reviews, annual compliance sweeps, and enterprise exposure reporting. |
+| **M&A Analyst** | SEC, OSHA, EPA | Pre-acquisition target screening, liability discovery, and valuation diligence. |
+| **ESG Researcher** | EPA, OSHA, DOL | Environmental, labor, and governance screening for ESG scoring and investment research. |
+| **Legal Counsel** | SEC, FDA, OSHA | Litigation preparation, case-status review, settlement history, and enforcement exposure. |
+| **Investigative Journalist** | All Sources | Pattern-of-conduct research, repeat-violation tracking, and escalation analysis. |
+| **Supply Chain Auditor** | OSHA, EPA, DOL | Supplier onboarding, vendor reviews, and manufacturing compliance risk assessment. |
+
+---
+
+## 💡 Typical Use Cases
+
+> **Scenario 1:** Run a board-ready compliance review across all major federal enforcement sources with *one* TinyFish-backed scan.
+
+> **Scenario 2:** Screen an acquisition target for unresolved liabilities before deeper legal and financial diligence begins.
+
+> **Scenario 3:** Build comprehensive ESG research packets from EPA, OSHA, and DOL findings without manually navigating each agency portal.
+
+> **Scenario 4:** Monitor suppliers and watchlist entities over time, triggering TinyFish-powered briefings when new risks emerge.
+
+---
+
+## ⚙️ Prerequisites & Installation
+
+### Prerequisites
+
+- **Python 3.11** or newer
+- **Node.js 18** or newer
+- **A TinyFish API key**
+- A reachable **MongoDB** instance
+
+### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/autodiligence.git
-cd autodiligence
+# 1. Clone the repository
+git clone <your-repo-url>
+cd auto-diligence-tinyfish
 
-# Install dependencies
+# 2. Set up the backend
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
-# Set up environment variables
-export TINYFISH_API_KEY="sk-tinyfish-*****"
-export REDIS_URL="redis://localhost:6379/0"  # Optional
+# 3. Set up the frontend
+cd ui
+npm install
+cd ..
 ```
 
-### Basic Usage
+### Configuration
 
-```python
-from autodiligence import DiligenceManager
+Create a root `.env` file for the backend:
 
-# Initialize the manager
-manager = DiligenceManager(
-    sources=["osha.gov", "fda.gov", "sec.gov"],
-    use_token_vault=True
-)
-
-# Run a research query
-results = await manager.research(
-    target="Company X",
-    query="violations and enforcement actions"
-)
-
-# Process results
-for source, data in results.items():
-    print(f"{source}: {len(data)} records found")
+```env
+TINYFISH_API_KEY=your_tinyfish_api_key
+MONGODB_URI=your_mongodb_connection_string
+MONGODB_DB=autodiligence
+CORS_ORIGINS=http://localhost:5174,http://127.0.0.1:5174
+DIGEST_QUEUE_TIMEOUT_SECONDS=15
 ```
 
-### Advanced Configuration
-
-```python
-from autodiligence import DiligenceManager, EvasionProfile
-
-# Custom evasion profile
-profile = EvasionProfile(
-    name="high_security",
-    browser_profile="stealth",
-    proxy_type="residential",
-    rate_limit=3,
-    human_delay_range=(2, 5)
-)
-
-manager = DiligenceManager(
-    sources=["court_system.gov"],
-    evasion_profile=profile,
-    max_concurrent_agents=10,
-    token_vault_ttl=3600  # 1 hour
-)
+If you want the frontend to call a remote API directly (instead of proxying via dev server), create `ui/.env`:
+```env
+REACT_APP_API_URL=http://localhost:8000
 ```
 
 ---
 
-## 📊 Performance Metrics
+## 🚀 Running Locally
 
-| Metric | Traditional Approach | AutoDiligence |
-|--------|-------------------|---------------|
-| Time to first result | 5-10 min | 30 sec |
-| Parallel sources | 1-2 | 20+ |
-| Login attempts per session | 20+ | 1-2 |
-| Success rate on complex sites | 40% | 85%+ |
-| Data freshness | Hours/Days | Real-time |
+**Start the backend:**
+```bash
+source .venv/bin/activate
+uvicorn src.api.main:app --reload --port 8000
+```
 
----
+**Start the frontend (in a separate terminal):**
+```bash
+cd ui
+npm run dev
+```
 
-## 🛡️ Security & Compliance
-
-- **Credential Isolation** - Site-specific credentials, no cross-contamination
-- **Session Encryption** - Token vault uses AES-256 encryption
-- **Audit Logging** - All actions logged for compliance
-- **Rate Limiting** - Respects site terms of service
-- **Data Retention** - Configurable retention policies
-
----
-
-## 🎯 Use Cases
-
-### Legal & Compliance
-- Due diligence for M&A transactions
-- Regulatory violation monitoring
-- Competitor compliance tracking
-- Litigation support research
-
-### Financial Services
-- SEC filing monitoring
-- FINRA disclosure tracking
-- Credit risk assessment
-- Investment opportunity research
-
-### Healthcare
-- FDA violation tracking
-- Clinical trial monitoring
-- Compliance audit preparation
-- Pharmacovigilance research
-
-### Government & NGOs
-- FOIA request automation
-- Public records research
-- Regulatory comment tracking
-- Policy impact analysis
+**Access the application at:** 
+- Frontend: `http://localhost:5174`
+- API docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/api/health`
+- **Hosted App:** [auto-diligence-tinyfish.vercel.app](https://auto-diligence-tinyfish.vercel.app/)
 
 ---
 
-## 🏆 Hackathon Pitch
+## 🗺️ Common Workflows
 
-**Problem:** Manual regulatory research is slow, expensive, and error-prone
+### 🔍 Start a New Scan
+1. Open the **New Scan** page.
+2. Select a persona or choose sources manually.
+3. Enter a target company (or pick a demo target).
+4. Submit the scan and watch the live agent log and browser streams in the dashboard!
 
-**Solution:** AutoDiligence - AI-powered multi-agent system that automates deep-web regulatory research at scale
+### 📈 Review Results
+- Inspect the **findings table** and interactive timeline.
+- Read the computed **risk score** and label.
+- Export to **CSV** or open the auto-generated **executive report**.
+- Add critical targets to the **watchlist** for continuous monitoring.
 
-**Why TinyFish:**
-- Natural language control handles complex site variations
-- Stealth mode bypasses anti-bot protection
-- Stateful token management ensures reliability
-- Parallel execution delivers results in minutes, not hours
+### 🧠 Leverage AI Briefings & Run Audit
+The **AI Briefings panel** queues TinyFish runs and intelligently polls the Run Audit API until the final intelligence product is ready. This powers portfolio briefings, entity deep-dives, risk-spike explanations, and geo-targeted scans.
 
-**Impact:**
-- 10x faster due diligence
-- 80% cost reduction vs manual research
-- 24/7 monitoring capability
-- Enterprise-grade reliability
-
----
-
-## 📚 Documentation
-
-- [Architecture Guide](docs/ARCHITECTURE.md)
-- [API Reference](docs/API.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [Contributing](CONTRIBUTING.md)
+The **Run Audit panel** provides comprehensive insights into queued/completed TinyFish runs, detailed duration metrics, live stream URLs, and full raw JSON outputs.
 
 ---
 
-## 🤝 Contributing
+## 🛠️ Development & API
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+<details>
+<summary><b>View Major API Routes</b></summary>
+
+- `/api/scans` — create, list, inspect, rerun, and cancel scans
+- `/api/findings` — access findings, CSV export, summaries, and executive reports
+- `/api/agents` — live event streams (SSE), history, and status
+- `/api/personas` — fetch persona presets
+- `/api/watchlist` — discrete watchlist management
+- `/api/analytics` — portfolio, benchmark, search, and trend data
+- `/api/scheduler` — manage the background re-scan scheduler
+- `/api/runs` — fetch TinyFish run lists, details, and metrics
+- `/api/digest` — entrypoints for intelligent AI briefings
+</details>
+
+**Notes:**
+- Frontend relies on Webpack Dev Server (`5174`) proxying `/api` traffic to FastAPI (`8000`).
+- The scheduler runs on FastAPI lifespan startup, checking for stale watchlist entities every 30 minutes (defined as >7 days untouched).
+- Source registry relies on [`config/sources.yaml`](config/sources.yaml).
 
 ---
 
-## 📄 License
+## 🔧 Useful Commands
 
-MIT License - See [LICENSE](LICENSE) for details.
+**Backend Checks:**
+```bash
+source .venv/bin/activate
+python -m src.tinyfish_runner
+pytest
+pytest test_all_features.py
+pytest test_penalty.py
+```
+
+**Frontend Checks:**
+```bash
+cd ui
+npx tsc --noEmit
+npm run build
+```
 
 ---
 
-**Built with ❤️ for the TinyFish Accelerator**
+<div align="center">
+  <small>See <a href="LICENSE">LICENSE</a> for details.</small>
+</div>

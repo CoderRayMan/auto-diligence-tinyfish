@@ -6,6 +6,416 @@
   overflow: hidden;
 }
 
+/* ── Breadcrumb nav ──────────────────────────────────────── */
+.dashboard-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  border-bottom: 1px solid var(--border-mid);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  flex-shrink: 0;
+}
+
+.breadcrumb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  background: transparent;
+  border: none;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+
+.breadcrumb-back:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent-text);
+}
+
+.breadcrumb-sep {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── KPI Stats Row ────────────────────────────────────────── */
+
+.kpi-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpi-card {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color var(--dur-base) var(--ease), box-shadow var(--dur-base) var(--ease);
+}
+
+.kpi-card:hover {
+  border-color: var(--border-mid);
+  box-shadow: var(--shadow-sm);
+}
+
+.kpi-card--danger { border-color: rgba(239,68,68,0.22); background: rgba(239,68,68,0.05); }
+.kpi-card--running { border-color: rgba(99,102,241,0.25); background: rgba(99,102,241,0.06); }
+
+.kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.kpi-icon--accent  { background: var(--accent-soft); color: var(--accent-text); }
+.kpi-icon--success { background: var(--success-soft); color: var(--success); }
+.kpi-icon--danger  { background: var(--danger-soft); color: var(--danger); }
+.kpi-icon--warning { background: var(--warning-soft); color: var(--warning); }
+.kpi-icon--running { background: rgba(99,102,241,0.15); color: var(--accent-text); }
+.kpi-icon--muted   { background: var(--surface-high); color: var(--text-dim); }
+
+.kpi-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+
+.kpi-value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.kpi-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Completed scans home grid ───────────────────────────── */
+.scans-home {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.75rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.scans-home-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.scans-home-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Home tabs (Scans / AI Briefings / Run Audit) */
+.home-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 18px 0 20px;
+}
+
+.home-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  padding: 10px 18px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  letter-spacing: 0.01em;
+}
+
+.home-tab:hover {
+  color: #94a3b8;
+}
+
+.home-tab--active {
+  color: #818cf8;
+  border-bottom-color: #818cf8;
+}
+
+.scans-home-title {
+  margin: 0 0 0.15rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.scans-home-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-dim, #64748b);
+}
+
+.scans-home-empty {
+  text-align: center;
+  padding: 3rem 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.scans-home-empty .empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.scans-home-section { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.scans-home-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim, #64748b);
+  margin: 0;
+}
+
+/* ── Scan card grid ──────────────────────────────────────── */
+.scan-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.scan-card {
+  background: var(--surface-raised, #1e293b);
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+  border-radius: 12px;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-family: inherit;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  color: inherit;
+  overflow: hidden;
+  position: relative;
+}
+
+.scan-card-risk-bar {
+  height: 3px;
+  width: 100%;
+  flex-shrink: 0;
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+
+.scan-card:hover .scan-card-risk-bar { opacity: 1; }
+
+/* inner padding wrapper — add to top of card body */
+.scan-card > .scan-card-top,
+.scan-card > .scan-card-target,
+.scan-card > .scan-card-query,
+.scan-card > .scan-card-meta,
+.scan-card > .scan-card-source-chips,
+.scan-card > .scan-card-footer {
+  padding-left: 1.1rem;
+  padding-right: 1.1rem;
+}
+
+.scan-card > .scan-card-top     { padding-top: 0.9rem; }
+.scan-card > .scan-card-footer  { padding-bottom: 0.85rem; }
+
+.scan-card:hover {
+  border-color: rgba(99,102,241,0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.28), 0 0 0 1px rgba(99,102,241,0.12);
+}
+
+.scan-card--active {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.scan-card--active:hover {
+  border-color: var(--warning, #fbbf24);
+}
+
+/* risk-level border tint on hover */
+.scan-card--risk-critical:hover { border-color: rgba(248,113,113,0.4); }
+.scan-card--risk-high:hover     { border-color: rgba(251,146,60,0.4); }
+.scan-card--risk-medium:hover   { border-color: rgba(251,191,36,0.4); }
+.scan-card--risk-low:hover      { border-color: rgba(52,211,153,0.4); }
+
+.scan-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0;
+  padding-top: 0.9rem;
+}
+
+.scan-card-risk-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: 4px;
+  padding: 2px 7px;
+  line-height: 1.5;
+}
+
+.scan-card-score {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary, #f1f5f9);
+  line-height: 1;
+}
+
+.scan-card-score-unit {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-dim, #64748b);
+  margin-left: 1px;
+}
+
+.scan-card-status-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--text-secondary, #94a3b8);
+}
+
+.scan-card-target {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary, #f1f5f9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 6px;
+}
+
+.scan-card-query {
+  font-size: 0.74rem;
+  color: var(--text-dim, #64748b);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.scan-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+  margin-top: 0.15rem;
+}
+
+.scan-card-findings {
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.scan-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.07));
+  padding-top: 0.55rem;
+  margin-top: 0.1rem;
+  font-size: 0.73rem;
+}
+
+.scan-card-sources { color: var(--text-dim, #64748b); }
+
+.scan-card-cta {
+  color: var(--accent, #38bdf8);
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.scan-card:hover .scan-card-cta { opacity: 1; }
+
+/* ── Source mini chips ─────────────────────────────────── */
+
+.scan-card-source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.source-mini-chip {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+  color: var(--text-dim, #64748b);
+  background: rgba(255,255,255,0.04);
+}
+
+.source-mini-chip--completed {
+  color: var(--success, #10b981);
+  border-color: rgba(16,185,129,0.25);
+  background: rgba(16,185,129,0.08);
+}
+
+.source-mini-chip--failed {
+  color: var(--danger, #ef4444);
+  border-color: rgba(239,68,68,0.2);
+  background: rgba(239,68,68,0.07);
+}
+
+.source-mini-chip--running {
+  color: var(--accent-text, #a5b4fc);
+  border-color: rgba(99,102,241,0.3);
+  background: rgba(99,102,241,0.1);
+}
+
 .dashboard--empty {
   align-items: center;
   justify-content: center;
@@ -52,7 +462,7 @@
 
 .scan-list-item--active {
   border-left-color: var(--accent);
-  background: rgba(56, 189, 248, 0.07);
+  background: var(--accent-soft);
   color: var(--text-primary);
 }
 
@@ -199,9 +609,331 @@
   padding: 0 0.25rem;
 }
 
+/* ── Scan action buttons ───────────────────────────────── */
+
+.scan-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: inherit;
+  text-align: left;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.action-btn--rerun:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+.action-btn--report:hover {
+  border-color: var(--success, #4ade80);
+  color: var(--success, #4ade80);
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.action-btn--share:hover {
+  border-color: var(--warning, #fbbf24);
+  color: var(--warning, #fbbf24);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+/* ── Executive report modal ────────────────────────────── */
+
+.report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.report-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 910;
+  width: min(640px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.report-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text, #f1f5f9);
+}
+
+.report-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-soft, #94a3b8);
+  margin: 0 0 20px;
+}
+
+.report-section {
+  margin-bottom: 20px;
+}
+
+.report-section h4 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.report-section p {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-soft, #94a3b8);
+  margin: 0;
+}
+
+.report-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.report-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.report-metric-label {
+  font-size: 0.68rem;
+  text-transform: capitalize;
+  color: var(--text-soft, #94a3b8);
+}
+
+.report-metric-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text, #f1f5f9);
+}
+
+.report-recs {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.report-recs li {
+  font-size: 0.8rem;
+  color: var(--text-soft, #94a3b8);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.report-table th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-soft, #94a3b8);
+  font-weight: 600;
+}
+
+.report-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(31, 41, 55, 0.5);
+  color: var(--text, #f1f5f9);
+}
+
+/* ── View toggle (Table / Timeline) ────────────────────── */
+
+.view-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+}
+
+.view-toggle-btn {
+  padding: 5px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text-soft);
+  transition: all 120ms ease;
+}
+
+.view-toggle-btn:not(:last-child) {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.view-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.view-toggle-btn--active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
 /* ---- responsive: collapse sidebar on narrow ---- */
 @media (max-width: 900px) {
   .dashboard-body {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Scan progress bar ───────────────────────────────────── */
+
+.scan-progress-bar-wrap {
+  position: relative;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.scan-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #818cf8);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.scan-progress-label {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* ── Action button — watchlist ───────────────────────────── */
+
+.action-btn--watchlist {
+  background: rgba(234, 179, 8, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.action-btn--watchlist:hover {
+  background: rgba(234, 179, 8, 0.22);
+}
+
+/* ── Watchlist drawer ────────────────────────────────────── */
+
+.watchlist-drawer {
+  position: fixed;
+  right: 0;
+  top: 56px;
+  bottom: 0;
+  width: 320px;
+  background: var(--surface-1, #0a0f1e);
+  border-left: 1px solid rgba(255,255,255,0.08);
+  z-index: 800;
+  overflow-y: auto;
+  padding: 16px;
+  box-shadow: -8px 0 32px rgba(0,0,0,0.3);
+}
+
+.watchlist-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.watchlist-drawer-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted, #64748b);
+  font-size: 1rem;
+}
+
+.watchlist-drawer-close:hover { color: #f87171; }
+
+/* ── Global toolbar (bottom-right FAB cluster) ───────────── */
+
+.global-toolbar {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 700;
+}
+
+.global-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  backdrop-filter: blur(8px);
+}
+
+.global-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #818cf8;
+  transform: scale(1.08);
 }

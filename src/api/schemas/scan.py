@@ -26,6 +26,10 @@ class ScanRequest(BaseModel):
         default=None,
         description="Specific source IDs to query. Defaults to all configured sources.",
     )
+    persona_id: Optional[str] = Field(
+        default=None,
+        description="Persona ID to apply. Overrides sources/query with persona defaults if set.",
+    )
     jurisdictions: Optional[List[str]] = Field(default=None)
     date_from: Optional[str] = Field(default=None, description="ISO date filter start")
     date_to: Optional[str] = Field(default=None, description="ISO date filter end")
@@ -44,6 +48,8 @@ class ScanResponse(BaseModel):
     scan_id: str
     status: ScanStatus
     target: str
+    query: str = "regulatory violations and enforcement actions"
+    persona_id: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
     sources_total: int

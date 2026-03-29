@@ -20,8 +20,16 @@ aiohttp>=3.9.0
 # Data Processing
 pydantic>=2.5.0
 
+# MongoDB (persistent store)
+motor>=3.3.0
+pymongo[srv]>=4.6.0
+
 # Optional: Distributed Token Vault
 redis>=5.0.0
+
+# MongoDB persistence
+motor>=3.3.0
+pymongo>=4.6.0
 
 # Testing
 pytest>=7.4.0
