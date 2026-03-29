@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Download, Search, X, ChevronUp, ChevronDown } from "lucide-react";
 import type { Finding } from "../api/types";
 import { downloadFindingsCSV } from "../api/client";
 import DetailsDrawer from "./DetailsDrawer";
@@ -98,7 +99,7 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
               onClick={() => downloadFindingsCSV(scanId)}
               title="Download findings as CSV"
             >
-              ⬇ CSV
+              <Download size={13} /> CSV
             </button>
           )}
           <div className="sort-pills">
@@ -110,7 +111,7 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
                 type="button"
               >
                 {k === "penalty_amount" ? "Penalty" : k === "decision_date" ? "Date" : "Severity"}
-                {sortKey === k && (sortAsc ? " ↑" : " ↓")}
+                {sortKey === k && (sortAsc ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
               </button>
             ))}
           </div>
@@ -120,7 +121,7 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
       {/* Search bar */}
       {findings.length > 0 && (
         <div className="findings-search-bar">
-          <span className="findings-search-icon">🔍</span>
+          <Search size={14} className="findings-search-icon" />
           <input
             className="findings-search-input"
             type="text"
@@ -133,8 +134,9 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
               className="findings-search-clear"
               type="button"
               onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
             >
-              ✕
+              <X size={13} />
             </button>
           )}
         </div>
@@ -155,7 +157,7 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
                   onClick={() => setSevFilter(sevFilter === sev ? null : sev)}
                   type="button"
                 >
-                  ● {sev} ({count})
+                  <span className="filter-dot" /> {sev} ({count})
                 </button>
               );
             })}
@@ -180,7 +182,7 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
                 type="button"
                 onClick={() => { setSevFilter(null); setStatusFilter(null); }}
               >
-                ✕ Clear
+                <X size={11} /> Clear
               </button>
             )}
           </div>
@@ -217,7 +219,7 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
                 >
                   <td>
                     <span className={`sev-pill ${SEV_CLASS[f.severity] ?? ""}`}>
-                      ● {f.severity}
+                      <span className="sev-dot" /> {f.severity}
                     </span>
                   </td>
                   <td className="case-desc">{f.description || f.violation_type}</td>

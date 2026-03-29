@@ -305,23 +305,38 @@ export async function getRunStats(limit = 100): Promise<RunStats> {
 
 // ----------------------------------------------------------------- AI digest
 
+async function _fetchDigest(input: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 20000);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (e: unknown) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error("AI briefing request timed out. Please try again.");
+    }
+    throw e;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 export async function generatePortfolioDigest(): Promise<DigestResponse> {
-  const res = await fetch(`${BASE}/digest/portfolio`, { method: "POST" });
+  const res = await _fetchDigest(`${BASE}/digest/portfolio`, { method: "POST" });
   return _json<DigestResponse>(res);
 }
 
 export async function generateEntityDigest(target: string): Promise<DigestResponse> {
-  const res = await fetch(`${BASE}/digest/entity?target=${encodeURIComponent(target)}`, { method: "POST" });
+  const res = await _fetchDigest(`${BASE}/digest/entity?target=${encodeURIComponent(target)}`, { method: "POST" });
   return _json<DigestResponse>(res);
 }
 
 export async function generateRiskSpikeDigest(target: string): Promise<DigestResponse> {
-  const res = await fetch(`${BASE}/digest/risk-spike?target=${encodeURIComponent(target)}`, { method: "POST" });
+  const res = await _fetchDigest(`${BASE}/digest/risk-spike?target=${encodeURIComponent(target)}`, { method: "POST" });
   return _json<DigestResponse>(res);
 }
 
 export async function queueBatchEnrichment(targets: string[]): Promise<QueuedEnrichmentResponse> {
-  const res = await fetch(
+  const res = await _fetchDigest(
     `${BASE}/digest/queue-enrichment?targets=${encodeURIComponent(targets.join(","))}`,
     { method: "POST" }
   );
@@ -329,7 +344,7 @@ export async function queueBatchEnrichment(targets: string[]): Promise<QueuedEnr
 }
 
 export async function geoScan(target: string, countryCode: string): Promise<DigestResponse> {
-  const res = await fetch(
+  const res = await _fetchDigest(
     `${BASE}/digest/geo-scan?target=${encodeURIComponent(target)}&country_code=${countryCode}`,
     { method: "POST" }
   );

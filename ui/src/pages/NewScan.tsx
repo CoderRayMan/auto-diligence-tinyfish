@@ -1,9 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronRight, Zap, Rocket } from "lucide-react";
 import type { Persona, ScanRequest } from "../api/types";
+import {
+  ChevronDown, ChevronRight, Zap, Rocket,
+  Check, ShieldCheck, BarChart2, Leaf, Scale, Search, Factory,
+} from "lucide-react";
 import { createScan, listPersonas } from "../api/client";
 import "./NewScan.css";
+
+// Maps backend icon IDs (from persona.py) to Lucide components
+const PERSONA_ICON_MAP: Record<string, React.ReactNode> = {
+  "shield-check": <ShieldCheck size={22} />,
+  "bar-chart-2":  <BarChart2  size={22} />,
+  "leaf":         <Leaf       size={22} />,
+  "scale":        <Scale      size={22} />,
+  "search":       <Search     size={22} />,
+  "factory":      <Factory    size={22} />,
+};
 
 const ALL_SOURCES = [
   { id: "us_osha", label: "OSHA", description: "Occupational Safety violations" },
@@ -138,7 +151,9 @@ export default function NewScan() {
                 key={n}
                 className={`step-item ${activeStep === n ? "step-item--active" : ""} ${activeStep > n ? "step-item--done" : ""}`}
               >
-                <div className="step-circle">{activeStep > n ? "✓" : n}</div>
+                <div className="step-circle">
+                  {activeStep > n ? <Check size={12} aria-hidden /> : n}
+                </div>
                 <span className="step-label">{label}</span>
                 {n < 3 && <div className="step-line" />}
               </div>
@@ -148,7 +163,7 @@ export default function NewScan() {
 
         {/* ── Step 1: Persona selector */}
         <section className="persona-section">
-          <h3 className="section-title">① Choose your role</h3>
+          <h3 className="section-title">Step 1: Choose your role</h3>
           <div className="persona-grid">
             {personas.map((p) => (
               <button
@@ -159,7 +174,9 @@ export default function NewScan() {
                 onClick={() => selectPersona(selectedPersona?.id === p.id ? null : p)}
                 disabled={submitting}
               >
-                <span className="persona-icon">{p.icon}</span>
+                <span className="persona-icon">
+                  {PERSONA_ICON_MAP[p.icon] ?? <ShieldCheck size={22} />}
+                </span>
                 <span className="persona-label">{p.label}</span>
                 <span className="persona-desc">{p.description}</span>
                 <div className="persona-focus">
@@ -175,7 +192,7 @@ export default function NewScan() {
         <form className="new-scan-form" onSubmit={handleSubmit} noValidate>
           {/* ── Step 2: Target */}
           <section className="target-section">
-            <h3 className="section-title">② Enter target entity</h3>
+            <h3 className="section-title">Step 2: Enter target entity</h3>
 
             {/* Demo quick-start targets */}
             {selectedPersona && selectedPersona.demo_targets.length > 0 && (
@@ -315,7 +332,7 @@ export default function NewScan() {
                 {selectedPersona && (
                   <>
                     {" "}as <strong>{selectedPersona.label}</strong>{" "}
-                    {selectedPersona.icon}
+                    {PERSONA_ICON_MAP[selectedPersona.icon] ?? <ShieldCheck size={16} />}
                   </>
                 )}
               </div>

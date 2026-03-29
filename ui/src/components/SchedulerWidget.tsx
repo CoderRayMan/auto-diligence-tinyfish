@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Loader2, Pause, Play, RefreshCw, X } from "lucide-react";
 import { getSchedulerStatus, triggerSchedulerSweep, pauseScheduler, resumeScheduler } from "../api/client";
 import type { SchedulerStatus } from "../api/types";
 import "./SchedulerWidget.css";
@@ -84,8 +85,10 @@ export const SchedulerWidget: React.FC = () => {
       {expanded && (
         <div className="scheduler-dropdown">
           <div className="scheduler-dropdown-header">
-            <span>🔄 Proactive Re-scan Scheduler</span>
-            <button className="scheduler-close" onClick={() => setExpanded(false)}>✕</button>
+            <span><RefreshCw size={13} aria-hidden /> Proactive Re-scan Scheduler</span>
+            <button className="scheduler-close" onClick={() => setExpanded(false)} aria-label="Close scheduler details">
+              <X size={13} />
+            </button>
           </div>
 
           <div className="scheduler-stats-row">
@@ -141,14 +144,14 @@ export const SchedulerWidget: React.FC = () => {
               onClick={handleTrigger}
               disabled={loading}
             >
-              {loading ? "⏳" : "▶"} Sweep Now
+              {loading ? <Loader2 size={13} /> : <Play size={13} />} Sweep Now
             </button>
             <button
               className={`scheduler-btn ${status.paused ? "scheduler-btn--resume" : "scheduler-btn--pause"}`}
               onClick={handleTogglePause}
               disabled={loading}
             >
-              {status.paused ? "▶ Resume" : "⏸ Pause"}
+              {status.paused ? <Play size={13} /> : <Pause size={13} />} {status.paused ? "Resume" : "Pause"}
             </button>
           </div>
         </div>

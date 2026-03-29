@@ -21,6 +21,9 @@ import {
   Building2,
   Activity,
   ShieldAlert,
+  Pin,
+  Scale,
+  Keyboard,
 } from "lucide-react";
 import type { AgentEvent, Finding, RiskTrendPoint, Scan } from "../api/types";
 import {
@@ -895,7 +898,10 @@ export default function Dashboard() {
               className="watchlist-drawer-close"
               type="button"
               onClick={() => setShowWatchlist(false)}
-            >✕</button>
+              aria-label="Close watchlist"
+            >
+              <X size={14} />
+            </button>
           </div>
           <WatchlistPanel
             onSelectEntity={(name) => {
@@ -928,8 +934,9 @@ export default function Dashboard() {
           type="button"
           title="Watchlist [W]"
           onClick={() => setShowWatchlist((v) => !v)}
+          aria-label="Toggle watchlist"
         >
-          📌
+          <Pin size={14} />
         </button>
         {scans.filter((s) => s.status === "completed").length >= 2 && (
           <button
@@ -937,8 +944,9 @@ export default function Dashboard() {
             type="button"
             title="Compare scans [C]"
             onClick={() => setShowCompare(true)}
+            aria-label="Compare scans"
           >
-            ⚖
+            <Scale size={14} />
           </button>
         )}
         <button
@@ -946,8 +954,9 @@ export default function Dashboard() {
           type="button"
           title="Keyboard shortcuts [?]"
           onClick={() => setShowShortcuts((v) => !v)}
+          aria-label="Keyboard shortcuts"
         >
-          ?
+          <Keyboard size={14} />
         </button>
       </div>
     </main>

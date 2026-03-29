@@ -1,4 +1,12 @@
 import React from "react";
+import {
+  Activity,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  MapPin,
+  Tag,
+} from "lucide-react";
 import type { Scan } from "../api/types";
 import "./ContextStrip.css";
 
@@ -37,16 +45,20 @@ export default function ContextStrip({ scan }: Props) {
   return (
     <section className="context-strip">
       <div className="context-main">
-        <h2>{scan.target} · Diligence Run</h2>
+        <h2 className="context-title">{scan.target}</h2>
         <div className="context-subtitle">
           {scan.persona_id && PERSONA_LABELS[scan.persona_id]
             ? `${PERSONA_LABELS[scan.persona_id]} perspective · `
             : "M&A buyer view · "}
-          Legal, regulatory, workplace safety, and enforcement history
+          Legal, regulatory, workplace safety &amp; enforcement history
         </div>
         <div className="chip-row">
-          <span className="chip chip--accent">Sources: {scan.sources_total} regulatory portals</span>
-          <span className="chip">Scope: Litigation &amp; Enforcement</span>
+          <span className="chip chip--accent">
+            <Tag size={10} /> {scan.sources_total} sources
+          </span>
+          <span className="chip">
+            <MapPin size={10} /> Litigation &amp; Enforcement
+          </span>
           {scan.persona_id && (
             <span className="chip chip--persona">
               {PERSONA_LABELS[scan.persona_id] ?? scan.persona_id}
@@ -61,18 +73,24 @@ export default function ContextStrip({ scan }: Props) {
       <div className="context-meta">
         {isRunning ? (
           <div className="pill pill--running">
-            ● Scan running – {scan.sources_completed}/{scan.sources_total} sites complete
+            <Activity size={12} />
+            Running — {scan.sources_completed}/{scan.sources_total}
             {elapsed && <span className="pill-elapsed"> · {elapsed}</span>}
           </div>
         ) : scan.status === "completed" ? (
           <div className="pill pill--done">
-            ✓ Scan complete
+            <CheckCircle2 size={12} />
+            Complete
             {elapsed && <span className="pill-elapsed"> · {elapsed}</span>}
           </div>
         ) : scan.status === "failed" ? (
-          <div className="pill pill--failed">✕ Scan failed</div>
+          <div className="pill pill--failed">
+            <XCircle size={12} /> Failed
+          </div>
         ) : (
-          <div className="pill pill--pending">◌ Pending</div>
+          <div className="pill pill--pending">
+            <Clock size={12} /> Pending
+          </div>
         )}
 
         {isRunning && (
@@ -83,7 +101,10 @@ export default function ContextStrip({ scan }: Props) {
 
         {scan.completed_at && (
           <div className="meta-time">
-            Completed: {new Date(scan.completed_at).toLocaleString()}
+            {new Date(scan.completed_at).toLocaleString(undefined, {
+              month: "short", day: "numeric",
+              hour: "2-digit", minute: "2-digit",
+            })}
           </div>
         )}
       </div>

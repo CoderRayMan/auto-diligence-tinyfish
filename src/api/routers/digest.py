@@ -18,8 +18,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections import Counter
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -30,14 +31,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/digest", tags=["digest"])
 
-# ------------------------------------------------------------------ helpers
+DIGEST_TIMEOUT_SECONDS = float(os.getenv("DIGEST_AGENT_TIMEOUT_SECONDS", "10"))
 
-def _get_client():
-    from tinyfish import TinyFish
-    api_key = os.getenv("TINYFISH_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="TINYFISH_API_KEY not configured")
-    return TinyFish(api_key=api_key)
+# ------------------------------------------------------------------ helpers
 
 
 # ------------------------------------------------------------------ models
@@ -58,6 +54,112 @@ class QueuedEnrichmentResponse(BaseModel):
     message: str
     queued_run_ids: list[str]
     targets_queued: list[str]
+
+
+def _severity_weight(level: str) -> int:
+    return {"critical": 0, "high": 1, "medium": 2, "low": 3}.get(str(level).lower(), 4)
+
+
+def _top_findings(findings: list[Any], limit: int = 3) -> list[Any]:
+    return sorted(
+        findings,
+        key=lambda finding: (
+            _severity_weight(str(finding.severity)),
+            -(finding.penalty_amount or 0.0),
+        ),
+    )[:limit]
+
+
+def _verdict_for_score(score: Optional[float]) -> str:
+    if score is None:
+        return "LOW_RISK"
+    if score >= 75:
+        return "HIGH_RISK"
+    if score >= 35:
+        return "MEDIUM_RISK"
+    return "LOW_RISK"
+
+
+def _build_digest_response(
+    *,
+    digest_type: str,
+    target: Optional[str],
+    started_at: datetime,
+    briefing: str,
+    raw_result: dict[str, Any],
+    num_steps: int = 0,
+    run_id: Optional[str] = None,
+) -> DigestResponse:
+    duration = (datetime.now(timezone.utc) - started_at).total_seconds()
+    return DigestResponse(
+        digest_type=digest_type,
+        target=target,
+        generated_at=started_at.isoformat(),
+        briefing=briefing,
+        raw_result=raw_result,
+        num_steps=num_steps,
+        duration_seconds=round(duration, 1),
+        run_id=run_id,
+        streaming_url=None,
+    )
+
+
+def _fallback_payload(reason: str, **payload: Any) -> dict[str, Any]:
+    return {
+        "mode": "fallback",
+        "reason": reason,
+        **payload,
+    }
+
+
+async def _run_agent_with_timeout(
+    *,
+    url: str,
+    goal: str,
+    browser_profile: Any,
+    context: str,
+    **kwargs: Any,
+) -> tuple[Any | None, str | None]:
+    try:
+        from tinyfish import TinyFish
+    except Exception as exc:
+        reason = f"TinyFish import failed: {exc}"
+        logger.warning("[Digest] %s", reason)
+        return None, reason
+
+    api_key = os.getenv("TINYFISH_API_KEY")
+    if not api_key:
+        reason = "TINYFISH_API_KEY not configured"
+        logger.warning("[Digest] %s", reason)
+        return None, reason
+
+    try:
+        client = TinyFish(api_key=api_key)
+        resp = await asyncio.wait_for(
+            asyncio.to_thread(
+                client.agent.run,
+                url=url,
+                goal=goal,
+                browser_profile=browser_profile,
+                **kwargs,
+            ),
+            timeout=DIGEST_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        reason = f"Live external research timed out after {DIGEST_TIMEOUT_SECONDS:.0f}s"
+        logger.warning("[Digest] %s for %s", reason, context)
+        return None, reason
+    except Exception as exc:
+        reason = f"TinyFish agent error: {exc}"
+        logger.warning("[Digest] %s for %s", reason, context)
+        return None, reason
+
+    if not getattr(resp, "result", None):
+        reason = "TinyFish returned an empty result"
+        logger.warning("[Digest] %s for %s", reason, context)
+        return None, reason
+
+    return resp, None
 
 
 # ------------------------------------------------------------------ portfolio digest
@@ -108,35 +210,72 @@ Return a JSON object with:
 
 Be specific, cite company names and risk scores. Keep the briefing under 300 words."""
 
-    client = _get_client()
     t0 = datetime.now(timezone.utc)
 
-    try:
-        resp = await asyncio.to_thread(
-            client.agent.run,
-            url="https://www.reuters.com/business/legal/",
-            goal=goal,
-            browser_profile=BrowserProfile.LITE,
+    resp, reason = await _run_agent_with_timeout(
+        url="https://www.reuters.com/business/legal/",
+        goal=goal,
+        browser_profile=BrowserProfile.LITE,
+        context="portfolio_digest",
+    )
+    if resp is not None:
+        return _build_digest_response(
+            digest_type="portfolio",
+            target=None,
+            started_at=t0,
+            briefing=resp.result.get("briefing") or str(resp.result),
+            raw_result=resp.result,
+            num_steps=resp.num_of_steps,
+            run_id=resp.run_id,
         )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"TinyFish agent error: {exc}")
 
-    duration = (datetime.now(timezone.utc) - t0).total_seconds()
+    portfolio_findings: list[Any] = []
+    for scan in top5:
+        portfolio_findings.extend(await scan_store.get_findings_async(scan.scan_id))
 
-    briefing_text = None
-    if resp.result:
-        briefing_text = resp.result.get("briefing") or str(resp.result)
+    ranked_findings = _top_findings(portfolio_findings, 4)
+    key_risks = [
+        f"{finding.entity_name}: {finding.violation_type} ({finding.severity})"
+        for finding in ranked_findings
+    ] or [
+        f"{scan.target}: risk score {scan.risk_score or 0}/100 ({scan.risk_label or 'Unknown'})"
+        for scan in top5[:3]
+    ]
+    recommended_actions = [
+        f"Review the highest-risk entities first: {', '.join(scan.target for scan in top5[:3])}.",
+        "Re-run AI briefings when TinyFish live research is available to enrich with external news.",
+    ]
+    if any((scan.risk_label or "").lower() == "critical" for scan in top5):
+        recommended_actions.insert(1, "Escalate critical-risk entities for legal and compliance review.")
 
-    return DigestResponse(
+    briefing_text = (
+        "Live external research is currently unavailable, so this briefing is generated from the latest completed "
+        "AutoDiligence scans. "
+        f"The highest current portfolio risk sits with {top5[0].target} at {top5[0].risk_score or 0}/100 "
+        f"({top5[0].risk_label or 'Unknown'}), and the top five entities account for "
+        f"{sum(scan.findings_count or 0 for scan in top5)} findings across the monitored portfolio. "
+        f"The leading risk themes are {', '.join(key_risks[:3])}."
+    )
+
+    return _build_digest_response(
         digest_type="portfolio",
         target=None,
-        generated_at=t0.isoformat(),
+        started_at=t0,
         briefing=briefing_text,
-        raw_result=resp.result,
-        num_steps=resp.num_of_steps,
-        duration_seconds=round(duration, 1),
-        run_id=resp.run_id,
-        streaming_url=None,   # agent.run() doesn't expose streaming_url in response
+        raw_result=_fallback_payload(
+            reason or "Live research unavailable",
+            key_risks=key_risks,
+            recommended_actions=recommended_actions,
+            top_entities=[
+                {
+                    "target": scan.target,
+                    "risk_score": scan.risk_score,
+                    "risk_label": scan.risk_label,
+                    "findings_count": scan.findings_count,
+                }
+                for scan in top5
+            ],
+        ),
     )
 
 
@@ -191,35 +330,55 @@ Return a JSON object with:
   "monitoring_recommendation": "<sentence recommending next steps>"
 }}"""
 
-    client = _get_client()
     t0 = datetime.now(timezone.utc)
 
-    try:
-        resp = await asyncio.to_thread(
-            client.agent.run,
-            url=f"https://efts.sec.gov/LATEST/search-index?q=%22{target.replace(' ', '+')}%22",
-            goal=goal,
-            browser_profile=BrowserProfile.LITE,
+    resp, reason = await _run_agent_with_timeout(
+        url=f"https://efts.sec.gov/LATEST/search-index?q=%22{target.replace(' ', '+')}%22",
+        goal=goal,
+        browser_profile=BrowserProfile.LITE,
+        context=f"entity_digest:{target}",
+    )
+    if resp is not None:
+        return _build_digest_response(
+            digest_type="entity",
+            target=target,
+            started_at=t0,
+            briefing=resp.result.get("briefing") or str(resp.result),
+            raw_result=resp.result,
+            num_steps=resp.num_of_steps,
+            run_id=resp.run_id,
         )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"TinyFish agent error: {exc}")
 
-    duration = (datetime.now(timezone.utc) - t0).total_seconds()
+    top_concerns = [
+        f"{finding.violation_type} ({finding.source_id.upper()}, {finding.severity})"
+        for finding in _top_findings(findings, 3)
+    ] or ["No critical or high-severity findings in the latest completed scan"]
+    exposure_total = sum(finding.penalty_amount or 0.0 for finding in findings)
+    source_mix = Counter(finding.source_id.upper() for finding in findings).most_common(3)
+    monitoring_recommendation = (
+        "Escalate to compliance and legal review with a near-term re-scan."
+        if (latest.risk_score or 0) >= 75
+        else "Maintain periodic monitoring and re-run after any new enforcement activity."
+    )
+    briefing_text = (
+        f"Live external research is currently unavailable, so this summary uses the latest completed AutoDiligence scan for {target}. "
+        f"The entity is currently rated {latest.risk_label or 'Unknown'} at {latest.risk_score or 0}/100 with "
+        f"{len(findings)} findings and approximately ${exposure_total:,.0f} of recorded exposure. "
+        f"The top local concerns are {', '.join(top_concerns[:3])}."
+    )
 
-    briefing_text = None
-    if resp.result:
-        briefing_text = resp.result.get("briefing") or str(resp.result)
-
-    return DigestResponse(
+    return _build_digest_response(
         digest_type="entity",
         target=target,
-        generated_at=t0.isoformat(),
+        started_at=t0,
         briefing=briefing_text,
-        raw_result=resp.result,
-        num_steps=resp.num_of_steps,
-        duration_seconds=round(duration, 1),
-        run_id=resp.run_id,
-        streaming_url=None,
+        raw_result=_fallback_payload(
+            reason or "Live research unavailable",
+            verdict=_verdict_for_score(latest.risk_score),
+            top_concerns=top_concerns,
+            monitoring_recommendation=monitoring_recommendation,
+            dominant_sources=[{"source": source, "count": count} for source, count in source_mix],
+        ),
     )
 
 
@@ -269,35 +428,71 @@ Return a JSON object with:
   "assessment": "The score change is JUSTIFIED | UNEXPLAINED based on events found"
 }}"""
 
-    client = _get_client()
     t0 = datetime.now(timezone.utc)
 
-    try:
-        resp = await asyncio.to_thread(
-            client.agent.run,
-            url=f"https://www.reuters.com/search/news?blob={target.replace(' ', '+')}",
-            goal=goal,
-            browser_profile=BrowserProfile.LITE,
+    resp, reason = await _run_agent_with_timeout(
+        url=f"https://www.reuters.com/search/news?blob={target.replace(' ', '+')}",
+        goal=goal,
+        browser_profile=BrowserProfile.LITE,
+        context=f"risk_spike_digest:{target}",
+    )
+    if resp is not None:
+        return _build_digest_response(
+            digest_type="risk_spike",
+            target=target,
+            started_at=t0,
+            briefing=resp.result.get("briefing") or str(resp.result),
+            raw_result=resp.result,
+            num_steps=resp.num_of_steps,
+            run_id=resp.run_id,
         )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"TinyFish agent error: {exc}")
 
-    duration = (datetime.now(timezone.utc) - t0).total_seconds()
+    prev_findings = await scan_store.get_findings_async(prev.scan_id)
+    latest_findings = await scan_store.get_findings_async(latest.scan_id)
+    prev_critical = sum(1 for finding in prev_findings if finding.severity == "critical")
+    latest_critical = sum(1 for finding in latest_findings if finding.severity == "critical")
+    prev_high = sum(1 for finding in prev_findings if finding.severity == "high")
+    latest_high = sum(1 for finding in latest_findings if finding.severity == "high")
+    prev_exposure = sum(finding.penalty_amount or 0.0 for finding in prev_findings)
+    latest_exposure = sum(finding.penalty_amount or 0.0 for finding in latest_findings)
 
-    briefing_text = None
-    if resp.result:
-        briefing_text = resp.result.get("briefing") or str(resp.result)
+    events_found: list[str] = []
+    if latest_critical != prev_critical:
+        events_found.append(f"Critical findings changed from {prev_critical} to {latest_critical}")
+    if latest_high != prev_high:
+        events_found.append(f"High-severity findings changed from {prev_high} to {latest_high}")
+    if len(latest_findings) != len(prev_findings):
+        events_found.append(f"Total findings changed from {len(prev_findings)} to {len(latest_findings)}")
+    if round(latest_exposure - prev_exposure, 2) != 0:
+        events_found.append(
+            f"Recorded exposure changed by ${latest_exposure - prev_exposure:,.0f}"
+        )
+    if not events_found:
+        events_found.append("Stored scan data shows no clear internal driver for the score change")
 
-    return DigestResponse(
+    justified = delta > 0 and (
+        latest_critical > prev_critical
+        or latest_high > prev_high
+        or len(latest_findings) > len(prev_findings)
+        or latest_exposure > prev_exposure
+    )
+    briefing_text = (
+        f"Live external research is currently unavailable, so this explanation uses only the two most recent completed scans for {target}. "
+        f"The score {direction} from {prev.risk_score or 0} to {latest.risk_score or 0} ({delta:+d}). "
+        f"The clearest internal drivers are: {'; '.join(events_found[:3])}."
+    )
+
+    return _build_digest_response(
         digest_type="risk_spike",
         target=target,
-        generated_at=t0.isoformat(),
+        started_at=t0,
         briefing=briefing_text,
-        raw_result=resp.result,
-        num_steps=resp.num_of_steps,
-        duration_seconds=round(duration, 1),
-        run_id=resp.run_id,
-        streaming_url=None,
+        raw_result=_fallback_payload(
+            reason or "Live research unavailable",
+            events_found=events_found,
+            risk_delta=delta,
+            assessment="The score change is JUSTIFIED" if justified else "UNEXPLAINED",
+        ),
     )
 
 
@@ -324,8 +519,27 @@ async def queue_batch_enrichment(
     if len(entity_list) > 10:
         raise HTTPException(status_code=422, detail="Maximum 10 targets per batch")
 
-    client = _get_client()
     queued_run_ids: list[str] = []
+    targets_queued: list[str] = []
+
+    try:
+        from tinyfish import BrowserProfile, TinyFish
+    except Exception as exc:
+        return QueuedEnrichmentResponse(
+            message=f"TinyFish queue unavailable: import failed ({exc})",
+            queued_run_ids=[],
+            targets_queued=[],
+        )
+
+    api_key = os.getenv("TINYFISH_API_KEY")
+    if not api_key:
+        return QueuedEnrichmentResponse(
+            message="TinyFish queue unavailable: TINYFISH_API_KEY not configured",
+            queued_run_ids=[],
+            targets_queued=[],
+        )
+
+    client = TinyFish(api_key=api_key)
 
     for entity in entity_list:
         goal = f"""Search https://efts.sec.gov/LATEST/search-index?q=%22{entity.replace(' ', '+')}%22
@@ -333,24 +547,34 @@ for recent SEC filings, enforcement actions, or regulatory disclosures involving
 Return JSON: {{"entity": "{entity}", "findings": [...], "risk_indicators": [...]}}"""
 
         try:
-            resp = await asyncio.to_thread(
-                client.agent.queue,
-                url=f"https://efts.sec.gov/LATEST/search-index?q=%22{entity.replace(' ', '+')}%22",
-                goal=goal,
-                browser_profile=BrowserProfile.LITE,
+            resp = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.agent.queue,
+                    url=f"https://efts.sec.gov/LATEST/search-index?q=%22{entity.replace(' ', '+')}%22",
+                    goal=goal,
+                    browser_profile=BrowserProfile.LITE,
+                ),
+                timeout=max(5.0, DIGEST_TIMEOUT_SECONDS / 2),
             )
             if resp.run_id:
                 queued_run_ids.append(resp.run_id)
+                targets_queued.append(entity)
                 logger.info(f"[Digest] Queued enrichment run {resp.run_id} for '{entity}'")
             elif resp.error:
                 logger.warning(f"[Digest] Queue failed for '{entity}': {resp.error.message}")
+        except asyncio.TimeoutError:
+            logger.warning(f"[Digest] Queue timed out for '{entity}'")
         except Exception as exc:
             logger.error(f"[Digest] Queue error for '{entity}': {exc}")
 
     return QueuedEnrichmentResponse(
-        message=f"Queued {len(queued_run_ids)} enrichment run(s) via TinyFish agent.queue()",
+        message=(
+            f"Queued {len(queued_run_ids)} enrichment run(s) via TinyFish agent.queue()"
+            if queued_run_ids
+            else "No enrichment runs were queued. TinyFish may be unavailable or timing out."
+        ),
         queued_run_ids=queued_run_ids,
-        targets_queued=entity_list[:len(queued_run_ids)],
+        targets_queued=targets_queued,
     )
 
 
@@ -412,7 +636,6 @@ Return JSON:
   "risk_level": "HIGH | MEDIUM | LOW | NONE"
 }}"""
 
-    client = _get_client()
     t0 = datetime.now(timezone.utc)
 
     proxy_config = ProxyConfig(
@@ -420,31 +643,60 @@ Return JSON:
         country_code=ProxyCountryCode(country_code.upper()),
     )
 
-    try:
-        resp = await asyncio.to_thread(
-            client.agent.run,
-            url=url,
-            goal=goal,
-            browser_profile=BrowserProfile.STEALTH,
-            proxy_config=proxy_config,
+    resp, reason = await _run_agent_with_timeout(
+        url=url,
+        goal=goal,
+        browser_profile=BrowserProfile.STEALTH,
+        proxy_config=proxy_config,
+        context=f"geo_targeted_scan:{target}:{country_code.upper()}",
+    )
+    if resp is not None:
+        return _build_digest_response(
+            digest_type=f"geo_scan_{country_code.lower()}",
+            target=target,
+            started_at=t0,
+            briefing=resp.result.get("briefing") or str(resp.result),
+            raw_result=resp.result,
+            num_steps=resp.num_of_steps,
+            run_id=resp.run_id,
         )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"TinyFish geo-scan error: {exc}")
 
-    duration = (datetime.now(timezone.utc) - t0).total_seconds()
+    entity_scans = [
+        scan for scan in await scan_store.list_all()
+        if scan.target.lower() == target.lower() and scan.status == "completed"
+    ]
+    if not entity_scans:
+        raise HTTPException(status_code=404, detail=f"No completed scans for '{target}'")
 
-    briefing_text = None
-    if resp.result:
-        briefing_text = resp.result.get("briefing") or str(resp.result)
+    latest = max(entity_scans, key=lambda scan: scan.created_at)
+    findings = await scan_store.get_findings_async(latest.scan_id)
+    actions_found = [
+        {
+            "case_id": finding.case_id,
+            "type": finding.violation_type,
+            "date": finding.decision_date,
+            "penalty": f"${finding.penalty_amount:,.0f}",
+            "status": finding.status,
+        }
+        for finding in _top_findings(findings, 3)
+    ]
+    briefing_text = (
+        f"Live geo-targeted research for {country_names.get(country_code.upper(), country_code)} is currently unavailable, "
+        f"so this result uses the latest completed AutoDiligence scan for {target}. "
+        f"The current local posture is {latest.risk_label or 'Unknown'} risk at {latest.risk_score or 0}/100 with "
+        f"{len(findings)} findings on record."
+    )
 
-    return DigestResponse(
+    return _build_digest_response(
         digest_type=f"geo_scan_{country_code.lower()}",
         target=target,
-        generated_at=t0.isoformat(),
+        started_at=t0,
         briefing=briefing_text,
-        raw_result=resp.result,
-        num_steps=resp.num_of_steps,
-        duration_seconds=round(duration, 1),
-        run_id=resp.run_id,
-        streaming_url=None,
+        raw_result=_fallback_payload(
+            reason or "Live research unavailable",
+            entity=target,
+            jurisdiction=country_names.get(country_code.upper(), country_code),
+            actions_found=actions_found,
+            risk_level=latest.risk_label or "NONE",
+        ),
     )

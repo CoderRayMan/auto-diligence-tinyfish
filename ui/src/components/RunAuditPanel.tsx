@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { AlertTriangle, Globe, Loader2, RefreshCw, Search } from "lucide-react";
 import { listRuns, getRunStats, getRun } from "../api/client";
 import type { RunSummary, RunDetail, RunStats } from "../api/types";
 import "./RunAuditPanel.css";
@@ -61,7 +62,7 @@ export const RunAuditPanel: React.FC = () => {
       {/* Header + stats */}
       <div className="run-audit-header">
         <div>
-          <h3>🔍 TinyFish Run Audit</h3>
+          <h3><Search size={16} aria-hidden /> TinyFish Run Audit</h3>
           <p className="run-audit-subtitle">Every browser agent run, fully transparent</p>
         </div>
         {stats && (
@@ -101,7 +102,7 @@ export const RunAuditPanel: React.FC = () => {
           <option value="CANCELLED">Cancelled</option>
         </select>
         <button className="run-refresh-btn" onClick={() => loadRuns()} disabled={loading}>
-          {loading ? "⏳" : "↻"} Refresh
+          {loading ? <Loader2 size={13} /> : <RefreshCw size={13} />} Refresh
         </button>
       </div>
 
@@ -134,7 +135,7 @@ export const RunAuditPanel: React.FC = () => {
                   <div className="run-meta">
                     {run.created_at ? new Date(run.created_at).toLocaleString() : ""}
                     {run.error_message && (
-                      <span className="run-error-chip"> ⚠ {run.error_message.slice(0, 40)}</span>
+                      <span className="run-error-chip"><AlertTriangle size={12} aria-hidden /> {run.error_message.slice(0, 40)}</span>
                     )}
                   </div>
                 </div>
@@ -194,7 +195,7 @@ export const RunAuditPanel: React.FC = () => {
                 {selected.proxy_country && (
                   <div>
                     <div className="run-detail-label">Geo Proxy</div>
-                    <div>🌍 {selected.proxy_country}</div>
+                    <div><Globe size={13} aria-hidden /> {selected.proxy_country}</div>
                   </div>
                 )}
                 {selected.error_category && (
@@ -216,7 +217,7 @@ export const RunAuditPanel: React.FC = () => {
             </>
           ) : (
             <div className="run-detail-empty">
-              ← Select a run to inspect its goal, result, and live browser stream
+              Select a run to inspect its goal, result, and live browser stream
             </div>
           )}
         </div>

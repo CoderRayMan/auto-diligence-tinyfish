@@ -1,5 +1,16 @@
 import React, { useState } from "react";
 import {
+  AlertTriangle,
+  BarChart3,
+  Bot,
+  Building2,
+  Globe,
+  Info,
+  Loader2,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
+import {
   generatePortfolioDigest,
   generateEntityDigest,
   generateRiskSpikeDigest,
@@ -10,13 +21,13 @@ import type { DigestResponse } from "../api/types";
 import "./DigestPanel.css";
 
 const GEO_OPTIONS = [
-  { code: "US", label: "🇺🇸 US (SEC)" },
-  { code: "GB", label: "🇬🇧 UK (FCA)" },
-  { code: "CA", label: "🇨🇦 Canada (OSC)" },
-  { code: "DE", label: "🇩🇪 Germany (BaFin)" },
-  { code: "FR", label: "🇫🇷 France (AMF)" },
-  { code: "JP", label: "🇯🇵 Japan (FSA)" },
-  { code: "AU", label: "🇦🇺 Australia (ASIC)" },
+  { code: "US", label: "US (SEC)" },
+  { code: "GB", label: "UK (FCA)" },
+  { code: "CA", label: "Canada (OSC)" },
+  { code: "DE", label: "Germany (BaFin)" },
+  { code: "FR", label: "France (AMF)" },
+  { code: "JP", label: "Japan (FSA)" },
+  { code: "AU", label: "Australia (ASIC)" },
 ];
 
 export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTargets }) => {
@@ -67,7 +78,7 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
   return (
     <div className="digest-panel">
       <div className="digest-header">
-        <h3>🤖 AI Intelligence Briefings</h3>
+        <h3><Bot size={16} aria-hidden /> AI Intelligence Briefings</h3>
         <p className="digest-subtitle">
           Powered by <strong>TinyFish agent.run()</strong> — live browser research, structured output
         </p>
@@ -76,18 +87,18 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
       {/* Tabs */}
       <div className="digest-tabs">
         {[
-          { id: "portfolio", label: "📊 Portfolio Brief" },
-          { id: "entity",    label: "🏢 Entity Deep-Dive" },
-          { id: "spike",     label: "📈 Risk Spike Explain" },
-          { id: "geo",       label: "🌍 Geo-Targeted Scan" },
-          { id: "batch",     label: "⚡ Batch Queue" },
+          { id: "portfolio", label: "Portfolio Brief", Icon: BarChart3 },
+          { id: "entity",    label: "Entity Deep-Dive", Icon: Building2 },
+          { id: "spike",     label: "Risk Spike Explain", Icon: TrendingUp },
+          { id: "geo",       label: "Geo-Targeted Scan", Icon: Globe },
+          { id: "batch",     label: "Batch Queue", Icon: Zap },
         ].map(tab => (
           <button
             key={tab.id}
             className={`digest-tab ${activeTab === tab.id ? "digest-tab--active" : ""}`}
             onClick={() => { setActiveTab(tab.id as typeof activeTab); setResult(null); setError(null); }}
           >
-            {tab.label}
+            <tab.Icon size={13} aria-hidden /> {tab.label}
           </button>
         ))}
       </div>
@@ -106,7 +117,7 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
               onClick={() => run(generatePortfolioDigest)}
               disabled={loading}
             >
-              {loading ? "⏳ Generating…" : "📊 Generate Portfolio Briefing"}
+              {loading ? <><Loader2 size={13} /> Generating...</> : <><BarChart3 size={13} /> Generate Portfolio Briefing</>}
             </button>
           </div>
         )}
@@ -131,7 +142,7 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
                 onClick={() => run(() => generateEntityDigest(entityTarget))}
                 disabled={loading || !entityTarget}
               >
-                {loading ? "⏳ Researching…" : "🏢 Generate Entity Brief"}
+                {loading ? <><Loader2 size={13} /> Researching...</> : <><Building2 size={13} /> Generate Entity Brief</>}
               </button>
             </div>
           </div>
@@ -157,7 +168,7 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
                 onClick={() => run(() => generateRiskSpikeDigest(spikeTarget))}
                 disabled={loading || !spikeTarget}
               >
-                {loading ? "⏳ Analysing…" : "📈 Explain Risk Spike"}
+                {loading ? <><Loader2 size={13} /> Analysing...</> : <><TrendingUp size={13} /> Explain Risk Spike</>}
               </button>
             </div>
           </div>
@@ -185,11 +196,11 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
                 onClick={() => run(() => geoScan(geoTarget, geoCountry))}
                 disabled={loading || !geoTarget}
               >
-                {loading ? "⏳ Scanning…" : "🌍 Run Geo-Scan"}
+                {loading ? <><Loader2 size={13} /> Scanning...</> : <><Globe size={13} /> Run Geo-Scan</>}
               </button>
             </div>
             <div className="digest-geo-note">
-              ℹ️ Browser will exit from <strong>{GEO_OPTIONS.find(g => g.code === geoCountry)?.label}</strong>
+              <Info size={13} aria-hidden /> Browser will exit from <strong>{GEO_OPTIONS.find(g => g.code === geoCountry)?.label}</strong>
             </div>
           </div>
         )}
@@ -214,7 +225,7 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
               onClick={handleBatchQueue}
               disabled={loading}
             >
-              {loading ? "⏳ Queuing…" : "⚡ Queue Batch Enrichment"}
+              {loading ? <><Loader2 size={13} /> Queuing...</> : <><Zap size={13} /> Queue Batch Enrichment</>}
             </button>
             {batchResult && (
               <div className="digest-batch-result">
@@ -235,7 +246,7 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
         {/* Error state */}
         {error && (
           <div className="digest-error">
-            ⚠ {error}
+            <AlertTriangle size={13} aria-hidden /> {error}
           </div>
         )}
 

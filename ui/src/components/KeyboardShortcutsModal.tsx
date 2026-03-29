@@ -1,4 +1,5 @@
 import React from "react";
+import { X } from "lucide-react";
 import "./KeyboardShortcutsModal.css";
 
 interface Props {
@@ -25,7 +26,9 @@ export default function KeyboardShortcutsModal({ onClose }: Props) {
       <div className="kbd-modal" role="dialog" aria-label="Keyboard shortcuts">
         <div className="kbd-modal-header">
           <h3>Keyboard Shortcuts</h3>
-          <button className="kbd-modal-close" onClick={onClose} type="button">✕</button>
+          <button className="kbd-modal-close" onClick={onClose} type="button" aria-label="Close keyboard shortcuts">
+            <X size={14} />
+          </button>
         </div>
         <ul className="kbd-list">
           {SHORTCUTS.map(({ key, description }) => (

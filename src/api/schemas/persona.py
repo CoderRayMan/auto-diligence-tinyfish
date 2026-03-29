@@ -40,7 +40,7 @@ PERSONAS: List[Persona] = [
     Persona(
         id="compliance_officer",
         label="Compliance Officer",
-        icon="🛡️",
+        icon="shield-check",
         description="Full regulatory sweep across all federal agencies. Surfaces enforcement actions, consent orders, and penalty history for board-level risk reports.",
         color="#3b82f6",
         default_sources=["us_osha", "us_fda", "us_sec", "us_dol", "us_epa"],
@@ -55,7 +55,7 @@ PERSONAS: List[Persona] = [
     Persona(
         id="m_and_a_analyst",
         label="M&A Analyst",
-        icon="📊",
+        icon="bar-chart-2",
         description="Pre-acquisition target screening. Focuses on material liabilities, pending litigation, and financial exposure that could affect deal valuation.",
         color="#8b5cf6",
         default_sources=["us_sec", "us_osha", "us_epa"],
@@ -70,7 +70,7 @@ PERSONAS: List[Persona] = [
     Persona(
         id="esg_researcher",
         label="ESG Researcher",
-        icon="🌿",
+        icon="leaf",
         description="Environmental, Social & Governance screening. Highlights EPA violations, workplace safety records, and governance failures for ESG scoring.",
         color="#10b981",
         default_sources=["us_epa", "us_osha", "us_dol"],
@@ -85,7 +85,7 @@ PERSONAS: List[Persona] = [
     Persona(
         id="legal_counsel",
         label="Legal Counsel",
-        icon="⚖️",
+        icon="scale",
         description="Litigation risk assessment for pending or potential legal matters. Focuses on case status, appeal history, and precedent-setting actions.",
         color="#f59e0b",
         default_sources=["us_sec", "us_fda", "us_osha"],
@@ -100,7 +100,7 @@ PERSONAS: List[Persona] = [
     Persona(
         id="investigative_journalist",
         label="Investigative Journalist",
-        icon="🔍",
+        icon="search",
         description="Deep-dive research mode. Maximizes source coverage and focuses on patterns of repeat violations, escalating penalties, and cover-ups.",
         color="#ef4444",
         default_sources=["us_osha", "us_fda", "us_sec", "us_dol", "us_epa"],
@@ -115,7 +115,7 @@ PERSONAS: List[Persona] = [
     Persona(
         id="supply_chain_auditor",
         label="Supply Chain Auditor",
-        icon="🏭",
+        icon="factory",
         description="Vendor and supplier risk assessment. Screens for OSHA safety violations, EPA compliance issues, and DOL labor practice violations in manufacturing.",
         color="#06b6d4",
         default_sources=["us_osha", "us_epa", "us_dol"],

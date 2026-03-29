@@ -5,6 +5,7 @@ __pycache__/
 ui/package-lock.json
 # C extensions
 *.so
+.github/
 
 # Distribution / packaging
 .Python

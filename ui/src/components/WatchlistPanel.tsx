@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { Pin, Plus, X } from "lucide-react";
 import type { WatchlistEntry } from "../api/types";
 import {
   addToWatchlist,
@@ -78,7 +79,7 @@ export default function WatchlistPanel({ onSelectEntity }: Props) {
     <section className="watchlist-panel">
       <div className="watchlist-header">
         <div className="watchlist-title">
-          <span>📌 Watchlist</span>
+          <span><Pin size={13} aria-hidden /> Watchlist</span>
           {staleCount > 0 && (
             <span className="stale-badge">{staleCount} stale</span>
           )}
@@ -88,8 +89,9 @@ export default function WatchlistPanel({ onSelectEntity }: Props) {
           type="button"
           onClick={() => setAdding((v) => !v)}
           title="Add entity to watchlist"
+          aria-label={adding ? "Close add entity form" : "Add entity to watchlist"}
         >
-          {adding ? "✕" : "+ Add"}
+          {adding ? <X size={13} /> : <><Plus size={13} /> Add</>}
         </button>
       </div>
 
@@ -148,8 +150,9 @@ export default function WatchlistPanel({ onSelectEntity }: Props) {
                 type="button"
                 onClick={() => handleRemove(e.entity_name)}
                 title="Remove from watchlist"
+                aria-label={`Remove ${e.entity_name} from watchlist`}
               >
-                ✕
+                <X size={13} />
               </button>
             </li>
           ))}

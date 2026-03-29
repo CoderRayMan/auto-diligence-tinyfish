@@ -1,4 +1,5 @@
 import React from "react";
+import { X } from "lucide-react";
 import type { Finding } from "../api/types";
 import "./DetailsDrawer.css";
 
@@ -22,7 +23,7 @@ export default function DetailsDrawer({ finding, onClose }: Props) {
         <div className="details-header">
           <h3>Case details · {finding.case_id}</h3>
           <button className="drawer-close" onClick={onClose} aria-label="Close" type="button">
-            ✕
+            <X size={14} />
           </button>
         </div>
 

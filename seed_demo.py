@@ -209,31 +209,31 @@ def make_finding(target, scan_id, source_id, severity, status, penalty,
 
 
 async def seed():
-    print("🌱  AutoDiligence Demo Seed")
+    print("[INIT] AutoDiligence Demo Seed")
     print("=" * 52)
 
     client, db = get_db()
-    print("✓ Connected to MongoDB")
+    print("[OK] Connected to MongoDB")
 
     # Clear existing data
     db.scans.drop()
     db.findings.drop()
     db.agent_events.drop()
-    print("✓ Cleared existing collections")
+    print("[OK] Cleared existing collections")
 
     # Create indexes
     db.scans.create_index("created_at")
     db.findings.create_index("scan_id")
     db.findings.create_index("severity")
     db.agent_events.create_index("scan_id")
-    print("✓ Indexes created")
+    print("[OK] Indexes created")
 
     total_scans = 0
     total_findings = 0
     scan_id_map = {}  # target -> latest scan_id (for trend tracking)
 
     for (target, persona_id, risk_score, risk_label, sources_used, history_count) in COMPANIES:
-        print(f"\n  📋  {target} ({persona_id})")
+        print(f"\n  [TARGET] {target} ({persona_id})")
         templates = FINDINGS_TEMPLATES.get(target, [])
 
         # Create historical scans first (older ones with slightly different scores)
@@ -317,18 +317,18 @@ async def seed():
         if events:
             db.agent_events.insert_many(events)
 
-        print(f"    ✓ Latest scan: score={risk_score} ({risk_label}), {len(latest_findings)} findings")
+        print(f"    [OK] Latest scan: score={risk_score} ({risk_label}), {len(latest_findings)} findings")
 
     print(f"\n{'='*52}")
-    print(f"✅  Seed complete!")
+    print(f"[DONE] Seed complete!")
     print(f"   {total_scans:>3} scans   (across {len(COMPANIES)} companies)")
     print(f"   {total_findings:>3} findings (with realistic penalties & dates)")
-    print(f"\n📋  Demo highlights:")
+    print(f"\n[HIGHLIGHTS]")
     print(f"   • Wells Fargo: ${3_000_000_000 + 3_700_000_000:,.0f} total exposure (banking fraud)")
     print(f"   • 3M Company: $10.3B PFAS contamination enforcement")
     print(f"   • Boeing: Critical SEC fraud + OSHA willful citations")
     print(f"   • Apple: Clean record — risk score 8/100")
-    print(f"\n🚀  Start the server and open http://localhost:5174")
+    print(f"\n[NEXT] Start the server and open http://localhost:5174")
     print(f"    .venv\\Scripts\\python.exe -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000")
 
     client.close()

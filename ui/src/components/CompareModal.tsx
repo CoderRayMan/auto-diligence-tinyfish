@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import type { Scan } from "../api/types";
 import { compareScans } from "../api/client";
 import "./CompareModal.css";
@@ -71,7 +72,9 @@ export default function CompareModal({ scans, defaultScanId, onClose }: Props) {
       <div className="compare-modal" role="dialog" aria-label="Compare Scans">
         <div className="compare-modal-header">
           <h3>Compare Scans</h3>
-          <button className="compare-close" onClick={onClose} type="button">✕</button>
+          <button className="compare-close" onClick={onClose} type="button" aria-label="Close compare modal">
+            <X size={14} />
+          </button>
         </div>
 
         {/* Pickers */}

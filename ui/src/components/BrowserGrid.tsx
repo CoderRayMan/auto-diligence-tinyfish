@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { ExternalLink } from "lucide-react";
 import type { AgentEvent, Scan } from "../api/types";
 import "./BrowserGrid.css";
 
@@ -88,7 +89,7 @@ function AgentCard({
             className="agent-card-popout"
             title="Open in new tab"
           >
-            ⤤
+            <ExternalLink size={14} aria-hidden />
           </a>
         )}
       </div>
@@ -116,7 +117,7 @@ function AgentCard({
               rel="noopener noreferrer"
               className="open-stream-btn"
             >
-              Open Live Browser ⤤
+              Open Live Browser <ExternalLink size={13} aria-hidden />
             </a>
           </div>
         ) : (
@@ -128,10 +129,10 @@ function AgentCard({
               )}
             <p className="agent-card-wait-text">
               {session.status === "failed"
-                ? "❌ Agent failed"
+                ? "Agent failed"
                 : session.status === "completed"
-                ? "✔ Completed — stream ended"
-                : "⏳ Waiting for browser…"}
+                ? "Completed - stream ended"
+                : "Waiting for browser..."}
             </p>
           </div>
         )}

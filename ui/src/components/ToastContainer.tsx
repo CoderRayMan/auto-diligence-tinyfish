@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useState } from "react";
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import type { Toast, ToastLevel } from "../api/types";
 import "./ToastContainer.css";
 
@@ -32,10 +33,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast--${t.level}`} role="alert">
             <span className="toast-icon">
-              {t.level === "success" ? "✓" : t.level === "error" ? "✕" : t.level === "warning" ? "⚠" : "ℹ"}
+              {t.level === "success" ? <CheckCircle2 size={14} /> : t.level === "error" ? <XCircle size={14} /> : t.level === "warning" ? <AlertTriangle size={14} /> : <Info size={14} />}
             </span>
             <span className="toast-msg">{t.message}</span>
-            <button className="toast-close" onClick={() => dismiss(t.id)} type="button">✕</button>
+            <button className="toast-close" onClick={() => dismiss(t.id)} type="button" aria-label="Dismiss notification">
+              <X size={14} />
+            </button>
           </div>
         ))}
       </div>
