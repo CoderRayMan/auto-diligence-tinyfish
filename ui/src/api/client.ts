@@ -25,6 +25,17 @@ async function _json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// ------------------------------------------------------------------ health
+
+export async function checkHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/health`);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // ------------------------------------------------------------------ scans
 
 export async function createScan(req: ScanRequest): Promise<Scan> {
