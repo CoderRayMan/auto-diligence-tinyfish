@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { checkHealth } from "../api/client";
 import "./AppBar.css";
 
 interface Props {
@@ -15,8 +16,8 @@ export default function AppBar({ agentCount = 0 }: Props) {
   useEffect(() => {
     let cancelled = false;
     const check = () =>
-      fetch("/api/health")
-        .then((r) => { if (!cancelled) setApiOk(r.ok); })
+      checkHealth()
+        .then((ok) => { if (!cancelled) setApiOk(ok); })
         .catch(() => { if (!cancelled) setApiOk(false); });
     check();
     const id = setInterval(check, 30_000);
@@ -59,36 +60,18 @@ export default function AppBar({ agentCount = 0 }: Props) {
       </div>
 
       <div className="app-bar-right">
-        <div className="kbd-hints">
-          <kbd>N</kbd> New Scan
-          <kbd>D</kbd> Dashboard
-        </div>
-        <div className="status-line">
+        <nav className="app-nav">
+          <Link to="/" className="nav-link">Dashboard</Link>
+          <Link to="/new-scan" className="nav-link nav-link--primary">▶ New Scan</Link>
+        </nav>
+        {apiOk !== null && (
           <span
             className={`status-dot ${
-              apiOk === null
-                ? ""
-                : connected
-                ? "status-dot--connected"
-                : "status-dot--disconnected"
+              connected ? "status-dot--connected" : "status-dot--disconnected"
             }`}
+            title={connected ? "API Online" : "API Offline"}
           />
-          <span>
-            {apiOk === null
-              ? "Checking..."
-              : connected
-              ? `API Online · ${agentCount} agents idle`
-              : "API Offline"}
-          </span>
-        </div>
-        <button
-          className="primary-btn"
-          onClick={() => navigate("/new-scan")}
-          type="button"
-        >
-          <span className="icon" aria-hidden>▶</span>
-          <span>Run New Scan</span>
-        </button>
+        )}
       </div>
     </header>
   );
