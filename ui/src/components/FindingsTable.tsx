@@ -38,13 +38,25 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
   const [sortAsc, setSortAsc] = useState(false);
   const [sevFilter, setSevFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const SEV_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
-  // Apply filters first
+  // Apply search + filters
   const filtered = findings.filter((f) => {
     if (sevFilter && f.severity !== sevFilter) return false;
     if (statusFilter && f.status !== statusFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        f.description?.toLowerCase().includes(q) ||
+        f.violation_type?.toLowerCase().includes(q) ||
+        f.case_id?.toLowerCase().includes(q) ||
+        f.entity_name?.toLowerCase().includes(q) ||
+        f.jurisdiction?.toLowerCase().includes(q) ||
+        f.source_id?.toLowerCase().includes(q)
+      );
+    }
     return true;
   });
 
@@ -104,6 +116,29 @@ export default function FindingsTable({ findings, loading, scanId }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Search bar */}
+      {findings.length > 0 && (
+        <div className="findings-search-bar">
+          <span className="findings-search-icon">🔍</span>
+          <input
+            className="findings-search-input"
+            type="text"
+            placeholder="Search violations, case IDs, jurisdiction…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              className="findings-search-clear"
+              type="button"
+              onClick={() => setSearchQuery("")}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Filter bar */}
       {findings.length > 0 && (

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import type { AgentEvent, Finding, Scan } from "../api/types";
+import type { AgentEvent, Finding, RiskTrendPoint, Scan } from "../api/types";
 import {
   cancelScan,
   getAgentEventHistory,
@@ -10,6 +10,9 @@ import {
   subscribeAgentEvents,
   rerunScan,
   getExecutiveReport,
+  getRiskTrend,
+  addToWatchlist,
+  downloadFindingsCSV,
 } from "../api/client";
 import BrowserGrid from "../components/BrowserGrid";
 import ContextStrip from "../components/ContextStrip";
@@ -17,6 +20,14 @@ import FindingsTable from "../components/FindingsTable";
 import ScorePanel from "../components/ScorePanel";
 import Timeline from "../components/Timeline";
 import DetailsDrawer from "../components/DetailsDrawer";
+import WatchlistPanel from "../components/WatchlistPanel";
+import CompareModal from "../components/CompareModal";
+import RiskSparkline from "../components/RiskSparkline";
+import KeyboardShortcutsModal from "../components/KeyboardShortcutsModal";
+import DigestPanel from "../components/DigestPanel";
+import RunAuditPanel from "../components/RunAuditPanel";
+import SchedulerWidget from "../components/SchedulerWidget";
+import { useToast } from "../components/ToastContainer";
 import "./Dashboard.css";
 
 const POLL_INTERVAL_MS = 3000;
@@ -24,6 +35,7 @@ const POLL_INTERVAL_MS = 3000;
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { toast } = useToast();
 
   const [scans, setScans] = useState<Scan[]>([]);
   const [activeScan, setActiveScan] = useState<Scan | null>(null);
@@ -32,6 +44,18 @@ export default function Dashboard() {
   const [loadingScans, setLoadingScans] = useState(true);
   const [loadingFindings, setLoadingFindings] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // UI state
+  const [copied, setCopied] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportData, setReportData] = useState<Record<string, unknown> | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "timeline">("table");
+  const [timelineFinding, setTimelineFinding] = useState<Finding | null>(null);
+  const [showWatchlist, setShowWatchlist] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [sparklines, setSparklines] = useState<Record<string, RiskTrendPoint[]>>({});
+  const [homeTab, setHomeTab] = useState<"scans" | "digest" | "runs">("scans");
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseCleanupRef = useRef<(() => void) | null>(null);
@@ -201,6 +225,19 @@ export default function Dashboard() {
     }
   };
 
+  const handleRerunScan = async () => {
+    if (!activeScan) return;
+    try {
+      const newScan = await rerunScan(activeScan.scan_id);
+      setScans((prev) => [newScan, ...prev]);
+      await selectScan(newScan);
+      startLiveTracking(newScan);
+      toast(`Re-run started for "${newScan.target}"`, "success");
+    } catch (e) {
+      toast(String(e), "error");
+    }
+  };
+
   const handleCancelScan = async () => {
     if (!activeScan) return;
     try {
@@ -210,20 +247,9 @@ export default function Dashboard() {
       setScans((prev) =>
         prev.map((s) => (s.scan_id === updated.scan_id ? updated : s))
       );
+      toast("Scan cancelled", "info");
     } catch (e) {
-      setError(String(e));
-    }
-  };
-
-  const handleRerunScan = async () => {
-    if (!activeScan) return;
-    try {
-      const newScan = await rerunScan(activeScan.scan_id);
-      setScans((prev) => [newScan, ...prev]);
-      await selectScan(newScan);
-      startLiveTracking(newScan);
-    } catch (e) {
-      setError(String(e));
+      toast(String(e), "error");
     }
   };
 
@@ -239,17 +265,11 @@ export default function Dashboard() {
     if (!activeScan) return;
     const url = `${window.location.origin}/?scan_id=${activeScan.scan_id}`;
     navigator.clipboard.writeText(url).then(
-      () => setCopied(true),
-      () => setError("Failed to copy link")
+      () => { setCopied(true); toast("Link copied to clipboard", "success"); },
+      () => toast("Failed to copy link", "error")
     );
     setTimeout(() => setCopied(false), 2000);
   };
-
-  const [copied, setCopied] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-  const [reportData, setReportData] = useState<Record<string, unknown> | null>(null);
-  const [viewMode, setViewMode] = useState<"table" | "timeline">("table");
-  const [timelineFinding, setTimelineFinding] = useState<Finding | null>(null);
 
   const handleViewReport = async () => {
     if (!activeScan) return;
@@ -258,9 +278,76 @@ export default function Dashboard() {
       setReportData(report);
       setShowReport(true);
     } catch (e) {
-      setError(String(e));
+      toast(String(e), "error");
     }
   };
+
+  const handleAddToWatchlist = async () => {
+    if (!activeScan) return;
+    try {
+      await addToWatchlist(activeScan.target, activeScan.persona_id ?? undefined);
+      toast(`"${activeScan.target}" added to watchlist`, "success");
+    } catch (e) {
+      const msg = String(e);
+      toast(msg.includes("409") ? "Already in watchlist" : msg, "warning");
+    }
+  };
+
+  const handleRerunScanWithToast = handleRerunScan;
+
+  // Load sparklines for home grid (all completed scans, batch)
+  useEffect(() => {
+    const completedTargets = [...new Set(
+      scans.filter((s) => s.status === "completed").map((s) => s.target)
+    )];
+    completedTargets.forEach(async (target) => {
+      if (sparklines[target]) return; // already loaded
+      try {
+        const trend = await getRiskTrend(target, 8);
+        if (trend.data_points.length >= 2) {
+          setSparklines((prev) => ({ ...prev, [target]: trend.data_points }));
+        }
+      } catch {
+        // no trend yet — only 1 scan for this entity
+      }
+    });
+  }, [scans]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      switch (e.key) {
+        case "n": case "N": navigate("/new-scan"); break;
+        case "d": case "D": handleBackToHome(); break;
+        case "w": case "W": setShowWatchlist((v) => !v); break;
+        case "c": case "C": if (scans.filter(s => s.status === "completed").length >= 2) setShowCompare(true); break;
+        case "?": setShowShortcuts((v) => !v); break;
+        case "r": case "R": if (activeScan?.status === "completed") handleRerunScan(); break;
+        case "e": case "E": if (activeScan && findings.length > 0) downloadFindingsCSV(activeScan.scan_id); break;
+        case "p": case "P": if (activeScan?.status === "completed") handleViewReport(); break;
+        case "t": case "T": setViewMode((v) => v === "table" ? "timeline" : "table"); break;
+        case "Escape":
+          setShowReport(false);
+          setShowCompare(false);
+          setShowShortcuts(false);
+          setShowWatchlist(false);
+          setTimelineFinding(null);
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeScan, findings, scans]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scan progress percentage
+  const progressPct = activeScan
+    ? activeScan.sources_total > 0
+      ? Math.round(((activeScan.sources_completed + activeScan.sources_failed) / activeScan.sources_total) * 100)
+      : 0
+    : 0;
 
   // ---------------------------------------------------------------- helpers
 
@@ -340,21 +427,49 @@ export default function Dashboard() {
           <div className="scans-home">
             <div className="scans-home-header">
               <div>
-                <h2 className="scans-home-title">Completed Scans</h2>
+                <h2 className="scans-home-title">AutoDiligence</h2>
                 <p className="scans-home-sub">
-                  {scans.filter((s) => s.status === "completed").length} scan
-                  {scans.filter((s) => s.status === "completed").length !== 1 ? "s" : ""} completed
+                  {scans.filter((s) => s.status === "completed").length} completed ·{" "}
+                  {scans.filter((s) => s.status === "running").length} running
                 </p>
               </div>
+              <div className="scans-home-actions">
+                <SchedulerWidget />
+                <button
+                  className="primary-btn"
+                  onClick={() => navigate("/new-scan")}
+                  type="button"
+                >
+                  ▶ New Scan
+                </button>
+              </div>
+            </div>
+
+            {/* Home tabs */}
+            <div className="home-tabs">
               <button
-                className="primary-btn"
-                onClick={() => navigate("/new-scan")}
-                type="button"
+                className={`home-tab ${homeTab === "scans" ? "home-tab--active" : ""}`}
+                onClick={() => setHomeTab("scans")}
               >
-                ▶ New Scan
+                📋 Scans
+              </button>
+              <button
+                className={`home-tab ${homeTab === "digest" ? "home-tab--active" : ""}`}
+                onClick={() => setHomeTab("digest")}
+              >
+                🤖 AI Briefings
+              </button>
+              <button
+                className={`home-tab ${homeTab === "runs" ? "home-tab--active" : ""}`}
+                onClick={() => setHomeTab("runs")}
+              >
+                🔍 Run Audit
               </button>
             </div>
 
+            {/* Scans tab */}
+            {homeTab === "scans" && (
+              <>
             {scans.filter((s) => s.status === "completed").length === 0 ? (
               <div className="scans-home-empty">
                 <div className="empty-icon">📋</div>
@@ -398,6 +513,9 @@ export default function Dashboard() {
                         <span className="scan-card-sources">
                           {s.sources_completed ?? 0}/{s.sources_total ?? 0} sources
                         </span>
+                        {sparklines[s.target] && (
+                          <RiskSparkline points={sparklines[s.target]} />
+                        )}
                         <span className="scan-card-cta">View Details →</span>
                       </div>
                     </button>
@@ -435,6 +553,28 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+            </>
+            )}
+
+            {/* AI Briefings tab */}
+            {homeTab === "digest" && (
+              <DigestPanel
+                scannedTargets={[
+                  ...new Set(
+                    scans
+                      .filter((s) => s.status === "completed")
+                      .map((s) => s.target)
+                  ),
+                ]}
+              />
+            )}
+
+            {/* Run Audit tab */}
+            {homeTab === "runs" && (
+              <div style={{ height: "720px" }}>
+                <RunAuditPanel />
+              </div>
+            )}
           </div>
         )}
 
@@ -457,13 +597,25 @@ export default function Dashboard() {
                 <div className="scan-actions">
                   {(activeScan.status === "running" ||
                     activeScan.status === "pending") && (
-                    <button
-                      className="cancel-btn"
-                      onClick={handleCancelScan}
-                      type="button"
-                    >
-                      ✕ Cancel Scan
-                    </button>
+                    <>
+                      {/* Progress bar */}
+                      <div className="scan-progress-bar-wrap">
+                        <div
+                          className="scan-progress-bar"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                        <span className="scan-progress-label">
+                          {activeScan.sources_completed + activeScan.sources_failed}/{activeScan.sources_total} sources · {progressPct}%
+                        </span>
+                      </div>
+                      <button
+                        className="cancel-btn"
+                        onClick={handleCancelScan}
+                        type="button"
+                      >
+                        ✕ Cancel Scan
+                      </button>
+                    </>
                   )}
 
                   {activeScan.status === "completed" && (
@@ -472,7 +624,7 @@ export default function Dashboard() {
                         className="action-btn action-btn--rerun"
                         onClick={handleRerunScan}
                         type="button"
-                        title="Re-run this scan with the same parameters"
+                        title="Re-run this scan [R]"
                       >
                         🔄 Re-run
                       </button>
@@ -480,9 +632,17 @@ export default function Dashboard() {
                         className="action-btn action-btn--report"
                         onClick={handleViewReport}
                         type="button"
-                        title="Generate executive diligence report"
+                        title="Executive report [P]"
                       >
                         📋 Report
+                      </button>
+                      <button
+                        className="action-btn action-btn--watchlist"
+                        onClick={handleAddToWatchlist}
+                        type="button"
+                        title="Pin to watchlist"
+                      >
+                        � Watch
                       </button>
                     </>
                   )}
@@ -635,6 +795,71 @@ export default function Dashboard() {
             </div>
           )
         )}
+      </div>
+
+      {/* Watchlist side panel */}
+      {showWatchlist && (
+        <div className="watchlist-drawer">
+          <div className="watchlist-drawer-header">
+            <span>Watchlist</span>
+            <button
+              className="watchlist-drawer-close"
+              type="button"
+              onClick={() => setShowWatchlist(false)}
+            >✕</button>
+          </div>
+          <WatchlistPanel
+            onSelectEntity={(name) => {
+              setShowWatchlist(false);
+              const scan = scans.find((s) => s.target.toLowerCase() === name.toLowerCase() && s.status === "completed");
+              if (scan) handleScanSelect(scan);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Compare modal */}
+      {showCompare && (
+        <CompareModal
+          scans={scans}
+          defaultScanId={activeScan?.scan_id}
+          onClose={() => setShowCompare(false)}
+        />
+      )}
+
+      {/* Keyboard shortcuts modal */}
+      {showShortcuts && (
+        <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />
+      )}
+
+      {/* Global toolbar (bottom-right) */}
+      <div className="global-toolbar">
+        <button
+          className="global-btn"
+          type="button"
+          title="Watchlist [W]"
+          onClick={() => setShowWatchlist((v) => !v)}
+        >
+          📌
+        </button>
+        {scans.filter((s) => s.status === "completed").length >= 2 && (
+          <button
+            className="global-btn"
+            type="button"
+            title="Compare scans [C]"
+            onClick={() => setShowCompare(true)}
+          >
+            ⚖
+          </button>
+        )}
+        <button
+          className="global-btn"
+          type="button"
+          title="Keyboard shortcuts [?]"
+          onClick={() => setShowShortcuts((v) => !v)}
+        >
+          ?
+        </button>
       </div>
     </main>
   );

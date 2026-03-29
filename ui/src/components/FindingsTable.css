@@ -262,3 +262,46 @@
   background: rgba(248, 113, 113, 0.16);
   border-color: rgba(248, 113, 113, 0.5);
 }
+
+/* ── Search bar ──────────────────────────────────────────────────── */
+
+.findings-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(255,255,255,0.02);
+}
+
+.findings-search-icon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.findings-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary, #f1f5f9);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.findings-search-input::placeholder {
+  color: var(--text-muted, #64748b);
+}
+
+.findings-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+
+.findings-search-clear:hover { color: #f87171; }

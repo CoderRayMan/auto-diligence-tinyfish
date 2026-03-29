@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from tinyfish import (
     TinyFish,
     BrowserProfile,
+    ProxyConfig,
     CompleteEvent,
     EventType,
     ProgressEvent,
@@ -21,6 +22,7 @@ from tinyfish import (
     StreamingUrlEvent,
 )
 from tinyfish.runs.types import RunStatus
+from tinyfish.agent.types import ProxyCountryCode
 
 
 @dataclass
@@ -55,11 +57,14 @@ class BaseAgent(ABC):
         source: SourceConfig,
         token_vault: Any = None,
         event_callback: Optional[Callable[[str, str, str, Optional[str]], None]] = None,
+        proxy_country_code: Optional[str] = None,
     ):
         self.source = source
         self.token_vault = token_vault
         # Called with (source_id, tag, message, streaming_url|None)
         self._event_callback = event_callback
+        # Optional geo-targeted proxy (e.g. "GB" routes through UK)
+        self._proxy_country_code = proxy_country_code
         self.client = TinyFish()  # reads TINYFISH_API_KEY from env
         self.logger = logging.getLogger(f"agent.{source.id}")
 
@@ -104,10 +109,23 @@ class BaseAgent(ABC):
 
                 run_id: Optional[str] = None
 
+                # Build optional geo-targeted proxy config
+                proxy_config = None
+                if self._proxy_country_code:
+                    try:
+                        proxy_config = ProxyConfig(
+                            enabled=True,
+                            country_code=ProxyCountryCode(self._proxy_country_code.upper()),
+                        )
+                        self._emit("RUNNING", f"Geo-proxy: {self._proxy_country_code.upper()}")
+                    except ValueError:
+                        self._emit("RUNNING", f"Unknown proxy country '{self._proxy_country_code}' — skipping proxy")
+
                 with self.client.agent.stream(
                     url=self.source.base_url,
                     goal=goal,
                     browser_profile=self._get_browser_profile(),
+                    proxy_config=proxy_config,
                 ) as stream:
                     for event in stream:
                         if event.type == EventType.STARTED:
