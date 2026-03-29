@@ -1,16 +1,13 @@
 """
-/api/digest — AI-powered narrative briefings using TinyFish agent.run().
+/api/digest — AI-powered narrative briefings using TinyFish browser runs.
 
-Uses TinyFish agent.run() (synchronous, blocking) to generate:
-  1. Weekly executive briefing for the full portfolio
-  2. Entity deep-dive: narrative summary for a single target
-  3. Risk spike analysis: explain why a score changed
+Briefing endpoints queue live TinyFish runs and return a run_id immediately so
+the frontend can poll /api/runs/{run_id} until the structured result is ready.
+If live research cannot be started, each endpoint falls back to a summary built
+from local scan and finding data.
 
-agent.run() is the RIGHT call here — we need a single, structured answer
-(the briefing), not a streaming UX. It blocks until the agent finishes,
-returns AgentRunResponse with num_of_steps telemetry included.
-
-Also demonstrates agent.queue() for fire-and-forget batch enrichment.
+This keeps the UI responsive even when TinyFish runs take multiple minutes to
+finish, which is common for Reuters/SEC research flows.
 """
 
 from __future__ import annotations
@@ -31,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/digest", tags=["digest"])
 
-DIGEST_TIMEOUT_SECONDS = float(os.getenv("DIGEST_AGENT_TIMEOUT_SECONDS", "10"))
+DIGEST_QUEUE_TIMEOUT_SECONDS = float(os.getenv("DIGEST_QUEUE_TIMEOUT_SECONDS", "15"))
 
 # ------------------------------------------------------------------ helpers
 
@@ -85,8 +82,8 @@ def _build_digest_response(
     digest_type: str,
     target: Optional[str],
     started_at: datetime,
-    briefing: str,
-    raw_result: dict[str, Any],
+    briefing: Optional[str],
+    raw_result: Optional[dict[str, Any]],
     num_steps: int = 0,
     run_id: Optional[str] = None,
 ) -> DigestResponse:
@@ -112,7 +109,16 @@ def _fallback_payload(reason: str, **payload: Any) -> dict[str, Any]:
     }
 
 
-async def _run_agent_with_timeout(
+def _queued_payload(context: str) -> dict[str, Any]:
+    return {
+        "mode": "queued",
+        "status": "RUNNING",
+        "context": context,
+        "message": "Live TinyFish research has started. Polling run status until completion.",
+    }
+
+
+async def _queue_agent_run(
     *,
     url: str,
     goal: str,
@@ -120,6 +126,7 @@ async def _run_agent_with_timeout(
     context: str,
     **kwargs: Any,
 ) -> tuple[Any | None, str | None]:
+    """Queue a TinyFish run and return its run_id quickly for client-side polling."""
     try:
         from tinyfish import TinyFish
     except Exception as exc:
@@ -135,31 +142,34 @@ async def _run_agent_with_timeout(
 
     try:
         client = TinyFish(api_key=api_key)
-        resp = await asyncio.wait_for(
+        queued = await asyncio.wait_for(
             asyncio.to_thread(
-                client.agent.run,
+                client.agent.queue,
                 url=url,
                 goal=goal,
                 browser_profile=browser_profile,
                 **kwargs,
             ),
-            timeout=DIGEST_TIMEOUT_SECONDS,
+            timeout=DIGEST_QUEUE_TIMEOUT_SECONDS,
         )
     except asyncio.TimeoutError:
-        reason = f"Live external research timed out after {DIGEST_TIMEOUT_SECONDS:.0f}s"
+        reason = f"TinyFish queue timed out after {DIGEST_QUEUE_TIMEOUT_SECONDS:.0f}s"
         logger.warning("[Digest] %s for %s", reason, context)
         return None, reason
     except Exception as exc:
-        reason = f"TinyFish agent error: {exc}"
+        reason = f"TinyFish queue error: {exc}"
         logger.warning("[Digest] %s for %s", reason, context)
         return None, reason
 
-    if not getattr(resp, "result", None):
-        reason = "TinyFish returned an empty result"
+    run_id = getattr(queued, "run_id", None)
+    if not run_id:
+        err = getattr(getattr(queued, "error", None), "message", str(queued))
+        reason = f"agent.queue() returned no run_id: {err}"
         logger.warning("[Digest] %s for %s", reason, context)
         return None, reason
 
-    return resp, None
+    logger.info("[Digest] Queued run %s for %s", run_id, context)
+    return queued, None
 
 
 # ------------------------------------------------------------------ portfolio digest
@@ -212,21 +222,21 @@ Be specific, cite company names and risk scores. Keep the briefing under 300 wor
 
     t0 = datetime.now(timezone.utc)
 
-    resp, reason = await _run_agent_with_timeout(
+    queued, reason = await _queue_agent_run(
         url="https://www.reuters.com/business/legal/",
         goal=goal,
         browser_profile=BrowserProfile.LITE,
         context="portfolio_digest",
     )
-    if resp is not None:
+    if queued is not None:
         return _build_digest_response(
             digest_type="portfolio",
             target=None,
             started_at=t0,
-            briefing=resp.result.get("briefing") or str(resp.result),
-            raw_result=resp.result,
-            num_steps=resp.num_of_steps,
-            run_id=resp.run_id,
+            briefing=None,
+            raw_result=_queued_payload("portfolio_digest"),
+            num_steps=0,
+            run_id=queued.run_id,
         )
 
     portfolio_findings: list[Any] = []
@@ -332,21 +342,21 @@ Return a JSON object with:
 
     t0 = datetime.now(timezone.utc)
 
-    resp, reason = await _run_agent_with_timeout(
+    queued, reason = await _queue_agent_run(
         url=f"https://efts.sec.gov/LATEST/search-index?q=%22{target.replace(' ', '+')}%22",
         goal=goal,
         browser_profile=BrowserProfile.LITE,
         context=f"entity_digest:{target}",
     )
-    if resp is not None:
+    if queued is not None:
         return _build_digest_response(
             digest_type="entity",
             target=target,
             started_at=t0,
-            briefing=resp.result.get("briefing") or str(resp.result),
-            raw_result=resp.result,
-            num_steps=resp.num_of_steps,
-            run_id=resp.run_id,
+            briefing=None,
+            raw_result=_queued_payload(f"entity_digest:{target}"),
+            num_steps=0,
+            run_id=queued.run_id,
         )
 
     top_concerns = [
@@ -430,21 +440,21 @@ Return a JSON object with:
 
     t0 = datetime.now(timezone.utc)
 
-    resp, reason = await _run_agent_with_timeout(
+    queued, reason = await _queue_agent_run(
         url=f"https://www.reuters.com/search/news?blob={target.replace(' ', '+')}",
         goal=goal,
         browser_profile=BrowserProfile.LITE,
         context=f"risk_spike_digest:{target}",
     )
-    if resp is not None:
+    if queued is not None:
         return _build_digest_response(
             digest_type="risk_spike",
             target=target,
             started_at=t0,
-            briefing=resp.result.get("briefing") or str(resp.result),
-            raw_result=resp.result,
-            num_steps=resp.num_of_steps,
-            run_id=resp.run_id,
+            briefing=None,
+            raw_result=_queued_payload(f"risk_spike_digest:{target}"),
+            num_steps=0,
+            run_id=queued.run_id,
         )
 
     prev_findings = await scan_store.get_findings_async(prev.scan_id)
@@ -643,22 +653,22 @@ Return JSON:
         country_code=ProxyCountryCode(country_code.upper()),
     )
 
-    resp, reason = await _run_agent_with_timeout(
+    queued, reason = await _queue_agent_run(
         url=url,
         goal=goal,
         browser_profile=BrowserProfile.STEALTH,
         proxy_config=proxy_config,
         context=f"geo_targeted_scan:{target}:{country_code.upper()}",
     )
-    if resp is not None:
+    if queued is not None:
         return _build_digest_response(
             digest_type=f"geo_scan_{country_code.lower()}",
             target=target,
             started_at=t0,
-            briefing=resp.result.get("briefing") or str(resp.result),
-            raw_result=resp.result,
-            num_steps=resp.num_of_steps,
-            run_id=resp.run_id,
+            briefing=None,
+            raw_result=_queued_payload(f"geo_targeted_scan:{target}:{country_code.upper()}"),
+            num_steps=0,
+            run_id=queued.run_id,
         )
 
     entity_scans = [

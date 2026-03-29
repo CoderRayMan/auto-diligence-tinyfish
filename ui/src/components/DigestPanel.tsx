@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -14,11 +14,105 @@ import {
   generatePortfolioDigest,
   generateEntityDigest,
   generateRiskSpikeDigest,
+  getRun,
   queueBatchEnrichment,
   geoScan,
 } from "../api/client";
-import type { DigestResponse } from "../api/types";
+import type { DigestResponse, RunDetail } from "../api/types";
 import "./DigestPanel.css";
+
+type DigestTab = "portfolio" | "entity" | "spike" | "geo" | "batch";
+
+type PendingDigestRun = {
+  runId: string;
+  digestType: string;
+  target?: string;
+  activeTab: Exclude<DigestTab, "batch">;
+  generatedAt: string;
+};
+
+type DigestPanelSnapshot = {
+  result?: DigestResponse | null;
+  pendingRun?: PendingDigestRun | null;
+  batchResult?: { message: string; queued_run_ids: string[] } | null;
+};
+
+const DIGEST_STORAGE_KEY = "autodiligence.digestPanel";
+const DIGEST_POLL_INTERVAL_MS = 5000;
+
+function readDigestSnapshot(): DigestPanelSnapshot {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(DIGEST_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as DigestPanelSnapshot) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDigestSnapshot(snapshot: DigestPanelSnapshot): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!snapshot.result && !snapshot.pendingRun && !snapshot.batchResult) {
+    window.sessionStorage.removeItem(DIGEST_STORAGE_KEY);
+    return;
+  }
+
+  window.sessionStorage.setItem(DIGEST_STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+function inferDigestTab(snapshot: DigestPanelSnapshot): DigestTab {
+  if (snapshot.pendingRun) {
+    return snapshot.pendingRun.activeTab;
+  }
+
+  const digestType = snapshot.result?.digest_type;
+  if (digestType === "portfolio") {
+    return "portfolio";
+  }
+  if (digestType === "entity") {
+    return "entity";
+  }
+  if (digestType === "risk_spike") {
+    return "spike";
+  }
+  if (digestType?.startsWith("geo_scan_")) {
+    return "geo";
+  }
+
+  return "portfolio";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isQueuedDigest(response: DigestResponse): boolean {
+  return Boolean(
+    response.run_id &&
+    (response.raw_result as Record<string, unknown> | undefined)?.mode === "queued"
+  );
+}
+
+function materializeDigestResponse(base: PendingDigestRun, run: RunDetail): DigestResponse {
+  const rawResult = run.result ?? {};
+  return {
+    digest_type: base.digestType,
+    target: base.target,
+    generated_at: run.finished_at ?? run.created_at ?? base.generatedAt,
+    briefing: typeof rawResult.briefing === "string" ? rawResult.briefing : undefined,
+    raw_result: rawResult,
+    num_steps: 0,
+    duration_seconds: run.duration_seconds,
+    run_id: run.run_id,
+    streaming_url: run.streaming_url,
+  };
+}
 
 const GEO_OPTIONS = [
   { code: "US", label: "US (SEC)" },
@@ -31,10 +125,13 @@ const GEO_OPTIONS = [
 ];
 
 export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTargets }) => {
-  const [activeTab, setActiveTab] = useState<"portfolio" | "entity" | "spike" | "geo" | "batch">("portfolio");
-  const [result, setResult] = useState<DigestResponse | null>(null);
+  const snapshot = readDigestSnapshot();
+  const [activeTab, setActiveTab] = useState<DigestTab>(inferDigestTab(snapshot));
+  const [result, setResult] = useState<DigestResponse | null>(snapshot.result ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingRun, setPendingRun] = useState<PendingDigestRun | null>(snapshot.pendingRun ?? null);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(snapshot.pendingRun ? "RUNNING" : null);
 
   // Entity / spike state
   const [entityTarget, setEntityTarget] = useState(scannedTargets[0] || "");
@@ -46,19 +143,121 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
 
   // Batch state
   const [batchTargets, setBatchTargets] = useState(scannedTargets.slice(0, 3).join(", "));
-  const [batchResult, setBatchResult] = useState<{ message: string; queued_run_ids: string[] } | null>(null);
+  const [batchResult, setBatchResult] = useState<{ message: string; queued_run_ids: string[] } | null>(snapshot.batchResult ?? null);
 
-  const run = async (fn: () => Promise<DigestResponse>) => {
+  const busy = loading || pendingRun !== null;
+
+  useEffect(() => {
+    writeDigestSnapshot({ result, pendingRun, batchResult });
+  }, [result, pendingRun, batchResult]);
+
+  useEffect(() => {
+    if (!pendingRun) {
+      setPendingStatus(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const poll = async () => {
+      while (!cancelled) {
+        try {
+          const run = await getRun(pendingRun.runId);
+          if (cancelled) {
+            return;
+          }
+
+          setPendingStatus(run.status);
+
+          if (run.status === "COMPLETED") {
+            const completedDigest = materializeDigestResponse(pendingRun, run);
+            writeDigestSnapshot({
+              result: completedDigest,
+              pendingRun: null,
+              batchResult,
+            });
+            setActiveTab(pendingRun.activeTab);
+            setResult(completedDigest);
+            setPendingRun(null);
+            setError(null);
+            return;
+          }
+
+          if (run.status === "FAILED" || run.status === "CANCELLED") {
+            writeDigestSnapshot({
+              result: null,
+              pendingRun: null,
+              batchResult,
+            });
+            setError(run.error_message || `TinyFish run ${run.status.toLowerCase()}.`);
+            setPendingRun(null);
+            return;
+          }
+        } catch (e: unknown) {
+          if (!cancelled) {
+            writeDigestSnapshot({
+              result: null,
+              pendingRun: null,
+              batchResult,
+            });
+            setError(e instanceof Error ? e.message : String(e));
+            setPendingRun(null);
+          }
+          return;
+        }
+
+        await sleep(DIGEST_POLL_INTERVAL_MS);
+      }
+    };
+
+    void poll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingRun, batchResult]);
+
+  const run = async (
+    tab: Exclude<DigestTab, "batch">,
+    fn: () => Promise<DigestResponse>,
+  ) => {
     setLoading(true);
     setError(null);
     setResult(null);
+    setPendingRun(null);
+    setPendingStatus(null);
     try {
       const r = await fn();
-      setResult(r);
+
+      if (isQueuedDigest(r) && r.run_id) {
+        const nextPendingRun = {
+          runId: r.run_id,
+          digestType: r.digest_type,
+          target: r.target,
+          activeTab: tab,
+          generatedAt: r.generated_at,
+        };
+        writeDigestSnapshot({
+          result: null,
+          pendingRun: nextPendingRun,
+          batchResult: null,
+        });
+        setPendingRun(nextPendingRun);
+        setActiveTab(tab);
+      } else {
+        writeDigestSnapshot({
+          result: r,
+          pendingRun: null,
+          batchResult: null,
+        });
+        setActiveTab(tab);
+        setResult(r);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleBatchQueue = async () => {
@@ -80,7 +279,7 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
       <div className="digest-header">
         <h3><Bot size={16} aria-hidden /> AI Intelligence Briefings</h3>
         <p className="digest-subtitle">
-          Powered by <strong>TinyFish agent.run()</strong> — live browser research, structured output
+          Powered by <strong>TinyFish agent.queue()</strong> with live run polling and structured output
         </p>
       </div>
 
@@ -96,7 +295,7 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
           <button
             key={tab.id}
             className={`digest-tab ${activeTab === tab.id ? "digest-tab--active" : ""}`}
-            onClick={() => { setActiveTab(tab.id as typeof activeTab); setResult(null); setError(null); }}
+            onClick={() => { setActiveTab(tab.id as DigestTab); setResult(null); setError(null); }}
           >
             <tab.Icon size={13} aria-hidden /> {tab.label}
           </button>
@@ -109,15 +308,15 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
         {activeTab === "portfolio" && (
           <div className="digest-form">
             <p className="digest-desc">
-              Uses <code>agent.run()</code> to visit Reuters Legal and synthesise a plain-English weekly briefing
-              for all monitored entities. Returns <strong>num_of_steps</strong> telemetry showing agent effort.
+              Queues a live Reuters Legal research run and keeps polling the TinyFish audit API until the
+              completed briefing is ready. You can leave and return to this panel while it runs.
             </p>
             <button
               className="digest-run-btn"
-              onClick={() => run(generatePortfolioDigest)}
-              disabled={loading}
+              onClick={() => run("portfolio", generatePortfolioDigest)}
+              disabled={busy}
             >
-              {loading ? <><Loader2 size={13} /> Generating...</> : <><BarChart3 size={13} /> Generate Portfolio Briefing</>}
+              {busy ? <><Loader2 size={13} /> Generating...</> : <><BarChart3 size={13} /> Generate Portfolio Briefing</>}
             </button>
           </div>
         )}
@@ -126,8 +325,8 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
         {activeTab === "entity" && (
           <div className="digest-form">
             <p className="digest-desc">
-              Uses <code>agent.run()</code> to visit SEC EDGAR and generate a structured risk narrative
-              for a single entity, combining our findings with live SEC disclosures.
+              Queues a live SEC EDGAR research run and hydrates the final narrative as soon as the TinyFish
+              run completes.
             </p>
             <div className="digest-input-row">
               <select
@@ -139,10 +338,10 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
               </select>
               <button
                 className="digest-run-btn"
-                onClick={() => run(() => generateEntityDigest(entityTarget))}
-                disabled={loading || !entityTarget}
+                onClick={() => run("entity", () => generateEntityDigest(entityTarget))}
+                disabled={busy || !entityTarget}
               >
-                {loading ? <><Loader2 size={13} /> Researching...</> : <><Building2 size={13} /> Generate Entity Brief</>}
+                {busy ? <><Loader2 size={13} /> Researching...</> : <><Building2 size={13} /> Generate Entity Brief</>}
               </button>
             </div>
           </div>
@@ -152,8 +351,8 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
         {activeTab === "spike" && (
           <div className="digest-form">
             <p className="digest-desc">
-              Uses <code>agent.run()</code> to explain WHY a risk score changed between two scans.
-              Agent searches Reuters for news events between the two scan dates.
+              Queues a Reuters research run to explain why a risk score changed between two scans, then
+              restores the explanation once the run is completed.
             </p>
             <div className="digest-input-row">
               <select
@@ -165,10 +364,10 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
               </select>
               <button
                 className="digest-run-btn"
-                onClick={() => run(() => generateRiskSpikeDigest(spikeTarget))}
-                disabled={loading || !spikeTarget}
+                onClick={() => run("spike", () => generateRiskSpikeDigest(spikeTarget))}
+                disabled={busy || !spikeTarget}
               >
-                {loading ? <><Loader2 size={13} /> Analysing...</> : <><TrendingUp size={13} /> Explain Risk Spike</>}
+                {busy ? <><Loader2 size={13} /> Analysing...</> : <><TrendingUp size={13} /> Explain Risk Spike</>}
               </button>
             </div>
           </div>
@@ -178,9 +377,8 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
         {activeTab === "geo" && (
           <div className="digest-form">
             <p className="digest-desc">
-              Uses <code>agent.run()</code> with <code>ProxyConfig(country_code=...)</code> to route
-              the browser through a geo-targeted proxy, accessing jurisdiction-specific regulatory
-              databases (FCA in GB, BaFin in DE, ASIC in AU, etc).
+              Queues a geo-routed TinyFish run with <code>ProxyConfig(country_code=...)</code> and waits for
+              the jurisdiction-specific research result to complete.
             </p>
             <div className="digest-input-row">
               <select value={geoTarget} onChange={e => setGeoTarget(e.target.value)} className="digest-select">
@@ -193,10 +391,10 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
               </select>
               <button
                 className="digest-run-btn"
-                onClick={() => run(() => geoScan(geoTarget, geoCountry))}
-                disabled={loading || !geoTarget}
+                onClick={() => run("geo", () => geoScan(geoTarget, geoCountry))}
+                disabled={busy || !geoTarget}
               >
-                {loading ? <><Loader2 size={13} /> Scanning...</> : <><Globe size={13} /> Run Geo-Scan</>}
+                {busy ? <><Loader2 size={13} /> Scanning...</> : <><Globe size={13} /> Run Geo-Scan</>}
               </button>
             </div>
             <div className="digest-geo-note">
@@ -223,9 +421,9 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
             <button
               className="digest-run-btn"
               onClick={handleBatchQueue}
-              disabled={loading}
+              disabled={busy}
             >
-              {loading ? <><Loader2 size={13} /> Queuing...</> : <><Zap size={13} /> Queue Batch Enrichment</>}
+              {busy ? <><Loader2 size={13} /> Queuing...</> : <><Zap size={13} /> Queue Batch Enrichment</>}
             </button>
             {batchResult && (
               <div className="digest-batch-result">
@@ -250,6 +448,22 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
           </div>
         )}
 
+        {pendingRun && (
+          <div className="digest-progress-card" role="status" aria-live="polite">
+            <div className="digest-progress-title">
+              <Loader2 size={14} aria-hidden /> Live TinyFish research in progress
+            </div>
+            <p className="digest-progress-copy">
+              This briefing is running in TinyFish now. You can switch tabs or open Run Audit; this panel will
+              resume polling automatically when you come back.
+            </p>
+            <div className="digest-progress-meta">
+              <span className="digest-progress-badge">{pendingStatus ?? "RUNNING"}</span>
+              <code className="digest-run-id-small">{pendingRun.runId}</code>
+            </div>
+          </div>
+        )}
+
         {/* Result card */}
         {result && activeTab !== "batch" && (
           <div className="digest-result-card">
@@ -257,8 +471,11 @@ export const DigestPanel: React.FC<{ scannedTargets: string[] }> = ({ scannedTar
               <span className="digest-type-badge">{result.digest_type.replace(/_/g, " ")}</span>
               {result.target && <span className="digest-result-target">· {result.target}</span>}
               <span className="digest-result-stats">
-                {result.num_steps} steps · {result.duration_seconds?.toFixed(0)}s
-                {result.run_id && <span> · <code className="digest-run-id-small">{result.run_id.slice(0, 12)}…</code></span>}
+                {result.num_steps > 0 && <span>{result.num_steps} steps</span>}
+                {typeof result.duration_seconds === "number" && (
+                  <span>{result.num_steps > 0 ? " · " : ""}{result.duration_seconds.toFixed(0)}s</span>
+                )}
+                {result.run_id && <span>{result.num_steps > 0 || typeof result.duration_seconds === "number" ? " · " : ""}<code className="digest-run-id-small">{result.run_id.slice(0, 12)}…</code></span>}
               </span>
             </div>
 

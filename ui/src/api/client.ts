@@ -307,12 +307,12 @@ export async function getRunStats(limit = 100): Promise<RunStats> {
 
 async function _fetchDigest(input: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 20000);
+  const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } catch (e: unknown) {
     if (e instanceof DOMException && e.name === "AbortError") {
-      throw new Error("AI briefing request timed out. Please try again.");
+      throw new Error("AI briefing request could not be started. Please try again.");
     }
     throw e;
   } finally {
